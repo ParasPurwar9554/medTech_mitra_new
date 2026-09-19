@@ -72,22 +72,38 @@ def trl_distribution():
     return [{"label": r["current_trl__name"] or f"TRL-{r['current_trl__level']}", "value": r["count"]} for r in rows]
 
 
-def applications_over_time(queryset=None, months=12):
-    qs = queryset if queryset is not None else Application.objects.all()
-    rows = (
-        qs.filter(date_received__isnull=False)
-        .annotate(month=TruncMonth("date_received"))
-        .values("month")
-        .annotate(count=Count("id"))
-        .order_by("month")
-    )
-    return [{"label": r["month"].strftime("%b %Y"), "value": r["count"]} for r in rows]
+def get_base_queryset(user):
+    """Return only the applications this user is allowed to see."""
+    print("Username:", user.username)
+    print("Role value:", user.role)
+    print("is_superuser:", user.is_superuser)
+    print("is_admin_role:", user.is_admin_role)
+    print("is_secretariat:", user.is_secretariat)
+    print("is_support_partner:", user.is_support_partner)
+    print("knowledge_partner_id:", user.knowledge_partner_id)
+    print("user.is_innovator:", user.is_innovator)
+    print("innovator_id:", user.applicant_id)
+    # Delegated Admin, Secretariat, superuser: all records
+    if user.is_superuser or user.is_admin_role or user.is_secretariat:
+        print("IN delegated")
+        return Application.objects.all()
 
+    # Knowledge Partner: only applications assigned to their partner
+    if user.is_support_partner and user.knowledge_partner_id:
+        return Application.objects.filter(
+            trl_stages__partner_assignments__partner_id=user.knowledge_partner_id
+        )
+
+    # Innovator: only their own applications
+    if user.is_innovator and user.applicant_id:
+        print("is_innovator")
+        return Application.objects.filter(applicant_id=user.applicant_id)
+
+    # Anyone else: nothing
+    return Application.objects.none()
 
 def apply_dashboard_filters(request):
-    """Shared filter parsing for all dashboard views: ?status=&medtech_type=
-    &risk_classification=&partner=&date_from=&date_to="""
-    qs = Application.objects.all()
+    qs = get_base_queryset(request.user)
     status = request.GET.get("status")
     medtech_type = request.GET.get("medtech_type")
     risk = request.GET.get("risk_classification")

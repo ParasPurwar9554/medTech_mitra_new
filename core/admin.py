@@ -224,3 +224,25 @@ class StatusChangeLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # audit log: system-generated only
+
+
+# ---------------------------------------------------------------------------
+# Custom order of models in the admin sidebar / home page
+# ---------------------------------------------------------------------------
+
+MODEL_ORDER = ["Applicant", "Application", "ApplicationTRLStage","KnowledgePartnerAssignment","Milestone","KnowledgePartner","PartnerMilestoneTemplate","TRLDefinition"]
+
+_original_get_app_list = admin.site.get_app_list
+
+def custom_get_app_list(request, *args, **kwargs):
+    app_list = _original_get_app_list(request, *args, **kwargs)
+
+    for app in app_list:
+        app["models"].sort(
+            key=lambda m: MODEL_ORDER.index(m["object_name"])
+            if m["object_name"] in MODEL_ORDER
+            else len(MODEL_ORDER)   # all other models go after these three
+        )
+    return app_list
+
+admin.site.get_app_list = custom_get_app_list    

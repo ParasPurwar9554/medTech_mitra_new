@@ -20,7 +20,6 @@ from core.models import TRLProgressLog
 @login_required
 def overview(request):
     qs = services.apply_dashboard_filters(request)
-     # --- TRL pie chart data: total applications per TRL level ---
     applications_qs = qs.select_related("applicant","current_trl").order_by(F("date_received").desc(nulls_last=True),"-id",)
     paginator = Paginator(applications_qs, 100)
     page_number = request.GET.get("page", 1)
@@ -93,7 +92,6 @@ def chart_data_api(request, chart_name):
         "risk": services.applications_by_risk_class,
         "trl": lambda _qs=None: services.trl_distribution(),
         "partner": lambda _qs=None: services.applications_by_knowledge_partner(),
-        "trend": services.applications_over_time,
         "kpis": services.kpi_summary,
     }
     fn = dispatch.get(chart_name)

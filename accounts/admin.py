@@ -12,6 +12,7 @@ class CustomUserAdmin(UserAdmin):
             "fields": (
                 "role",
                 "knowledge_partner",
+                "applicant"
             ),
         }),
     )
@@ -21,9 +22,11 @@ class CustomUserAdmin(UserAdmin):
             "fields": (
                 "role",
                 "knowledge_partner",
+                "applicant"
             ),
         }),
     )
+    autocomplete_fields = ("applicant",)
 
     list_display = (
         "username",

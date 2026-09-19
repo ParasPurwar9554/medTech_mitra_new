@@ -1,35 +1,3 @@
-"""
-Core domain models for the MedTech Mitra Innovator Tracking & Dashboard system.
-
-Design notes
-------------
-The source spreadsheet is a single 73-column flat sheet where one row mixes:
-  - applicant/organisation identity data
-  - the technology being developed
-  - the TAC (Technical Advisory Committee) review workflow
-  - knowledge-partner handholding workflow
-  - TRL (Technology Readiness Level) milestone progress
-  - final outcome
-
-That is a classic "wide operational log" shape, not a data model. For a
-government system that needs auditability, reporting, and multiple staff
-roles updating different stages, we normalise it into these entities:
-
-    Applicant                  -> who applied (person + org), reusable across apps
-    Application                -> one innovation/application record (1 applicant : N applications)
-    TACMeeting                 -> each TAC review event for an application (1:N)
-    KnowledgePartner           -> master list (CDSCO, AMTZ, AIM-NITI Aayog, INTENT, HTA, BIS ...)
-    KnowledgePartnerAssignment -> which partner is handling an application, and status (1:N)
-    FollowUp                   -> follow-up query/meeting cycle under a KP assignment (1:N)
-    TRLDefinition               -> master TRL levels 1-9 with milestone descriptions (M-1, M-2, M-3)
-    TRLProgressLog               -> an application's movement through TRL levels over time (1:N, audit trail)
-    Milestone                    -> a milestone achieved for an application, with evidence/date
-    StatusChangeLog               -> generic audit trail of status transitions (needed for
-                                     a government system that must show "who changed what, when")
-
-This keeps each workflow stage independently queryable/filterable (needed for
-the dashboard's funnel/TAT charts) instead of hunting through 73 columns.
-"""
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -152,7 +120,7 @@ class Application(TimeStampedModel):
     class MedTechType(models.TextChoices):
         MMDD = "MM-DD", "Device & Diagnostics"
         MMVT = "MM-VT", "Vaccines & Therapeutics"
-        MMAT="MM-AT","Assitive Technologies"
+        MMAT = "MM-AT", "Assitive Technologies"
 
     class RiskClass(models.TextChoices):
         CLASS_A = "A", "Class A"
@@ -182,10 +150,9 @@ class Application(TimeStampedModel):
         RESOLVED="resolved","Resolved"
         ASSIGNED_TO_KP = "assigned_to_kp", "Assigned to KP"
 
-    reference_no = models.CharField(max_length=50, unique=True, db_index=True)
+    reference_no = models.CharField(max_length=50, unique=True,)
     applicant = models.ForeignKey(Applicant, on_delete=models.PROTECT,
                                    related_name="applications")
-    #created_by = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True,related_name="+",)
     medtech_type = models.CharField(max_length=10, choices=MedTechType.choices)
     technology_name = models.CharField(max_length=255)
     intended_use_statement = models.TextField(blank=True)
@@ -225,7 +192,6 @@ class Application(TimeStampedModel):
     class Meta:
         ordering = ["-date_received"]
         indexes = [
-            models.Index(fields=["status"]),
             models.Index(fields=["medtech_type"]),
             models.Index(fields=["risk_classification"]),
             models.Index(fields=["date_received"]),
@@ -233,13 +199,6 @@ class Application(TimeStampedModel):
 
     def __str__(self):
         return f"{self.reference_no} - {self.technology_name}"
-
-    @property
-    def turnaround_days(self):
-        """Days from receipt to closure — key TAT metric for the dashboard."""
-        if self.date_received and self.closure_date:
-            return (self.closure_date - self.date_received).days
-        return None
 
 
 # ---------------------------------------------------------------------------
