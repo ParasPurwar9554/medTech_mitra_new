@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}MedTech Mitra{% endblock %} · Innovator Tracking Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="{% static 'js/jquery-4.0.0.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="tricolor-strip" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="{% url 'dashboard:overview' %}" class="brand">
+      <span class="brand-mark">MM</span>
+      <span class="brand-text">
+        <strong>MedTech Mitra Secretariat</strong>
+        <small>Innovator Facilitation &amp; TRL Tracking Dashboard</small>
+      </span>
+    </a>
+   <nav class="header-nav">
+    {% if user.is_authenticated %}
+        <span class="user-chip">
+            {{ user.get_username }}
+            <em>{{ user.get_role_display|default:user.role }}</em>
+        </span>
+
+        <form method="post"
+              action="{% url 'accounts:logout' %}"
+              style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn-ghost">
+                Sign out
+            </button>
+        </form>
+    {% else %}
+        <a href="{% url 'accounts:login' %}" class="btn-ghost">
+            Sign in
+        </a>
+    {% endif %}
+</nav>
+  </div>
+</header>
+
+<main class="page">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <p>MedTech Mitra Secretariat · Data last refreshed on page load · For official use only</p>
+</footer>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

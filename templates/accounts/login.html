@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1>Sign in</h1>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.errors %}<p style="color:var(--danger); font-size:13px;">Incorrect username or password.</p>{% endif %}
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" autofocus required>
+      <label for="id_password">Password</label>
+      <input type="password" name="password" id="id_password" required>
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

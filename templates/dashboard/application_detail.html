@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}{{ application.reference_no }}{% endblock %}
+{% load trl_extras %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><span class="ref-code">{{ application.reference_no }}</span> &middot; {{ application.technology_name }}</h1>
+    <p>{{ application.applicant.name }} &mdash; {{ application.get_medtech_type_display }}</p>
+  </div>
+  <a href="{% url 'dashboard:overview' %}" class="btn-secondary">&larr; Back to dashboard</a>
+</div>
+
+<div class="detail-grid">
+  <div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>TRL Progress</h2>
+
+      <div class="trl-tracker">
+          {% for trl in trl_tracker %}
+              <div class="trl-step {{ trl.status }}">
+                  <div class="trl-circle"
+     data-trl-id="{{ trl.id }}"
+     {% if trl.status != 'disabled' %}
+         onclick="loadTrlDetail({{ trl.id }}, {{ application.id }})" tabindex="0"
+         role="button"
+     {% else %}
+         aria-disabled="true"
+     {% endif %}
+     aria-label="TRL {{ forloop.counter }}: {{ trl.name }}">
+    {{ forloop.counter }}
+</div>
+                 <div class="trl-label">{{ trl.name|break_before_paren }}</div>
+              </div>
+              {% if not forloop.last %}
+                  <div class="trl-line {% if trl.status == 'completed' %}completed{% endif %}"></div>
+              {% endif %}
+          {% endfor %}
+      </div>
+
+      <!-- Single dynamic detail panel, filled by AJAX -->
+      <div id="trl-detail-panel" class="trl-detail-panel" style="display:none;">
+          <div id="trl-detail-content">Loading...</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>Application Details</h2>
+      <dl class="field-list">
+        <dt>Support Category: </dt><dd>{{ application.support_category|capfirst | default:"—" }}</dd>
+        <dt>Status: </dt><dd><span class="badge badge-slate">{{ application.get_status_display }}</span></dd>
+        <dt>Risk classification: </dt><dd>{{ application.get_risk_classification_display }}</dd>
+        <dt>Innovation stage: </dt><dd>{{ application.get_innovation_stage_display|default:"—" }}</dd>
+        <dt>Intended use: </dt><dd>{{ application.intended_use_statement|default:"—" }}</dd>
+        <dt>Target Population: </dt><dd>{{ application.target_population|default:"—" }}</dd>
+        <dt>Summary: </dt><dd>{{ application.query_text|default:"—"|safe }}</dd>
+        <dt>Date received: </dt><dd>{{ application.date_received|date:"d M Y"|default:"—" }}</dd>
+      </dl>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>TAC meetings</h2>
+      <ul class="timeline">
+        {% for m in application.tac_meetings.all %}
+        <li><strong>{{ m.meeting_date|date:"d M Y"|default:"Date TBD" }}</strong> &mdash; {{ m.meeting_ref_no|default:"" }}<br>
+          <span style="color:var(--ink-soft);">{{ m.final_tac_response|default:m.first_meeting_outcome|default:"No outcome recorded yet." }}</span></li>
+        {% empty %}
+        <li style="color:var(--ink-soft);">No TAC meetings recorded.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+
+
+   <script>
+
+let currentOpenTrlId = null;  // remembers which TRL panel is currently open
+
+function loadTrlDetail(trlId, applicationId) {
+    const panel = document.getElementById('trl-detail-panel');
+    const content = document.getElementById('trl-detail-content');
+
+    // Same TRL clicked again -> close it
+    if (currentOpenTrlId === trlId) {
+        panel.style.display = 'none';
+        currentOpenTrlId = null;
+        return;
+    }
+
+    // Different TRL (or first click) -> open/switch to it
+    currentOpenTrlId = trlId;
+    panel.style.display = 'block';
+    content.innerHTML = 'Loading...';
+
+    fetch(`/ajax/trl-detail/?trl_id=${trlId}&application_id=${applicationId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = `<p style="color:var(--danger);">${data.error}</p>`;
+                return;
+            }
+
+            let html = `<h3>${data.trl_name}</h3>`;
+            html += `<h4>Partner(s) for this TRL</h4>`;
+
+            const otherPartners = data.assigned_partners.filter(
+                p => !data.partners.some(mp => mp.partner_id === p.partner_id)
+            );
+
+            if (otherPartners.length > 0) {
+                otherPartners.forEach(partner => {
+                    html += buildPartnerBlock(partner);
+                });
+            }
+
+            content.innerHTML = html;
+        })
+        .catch(err => {
+            content.innerHTML = `<p style="color:var(--danger);">Failed to load details.</p>`;
+            console.error(err);
+        });
+}
+
+function buildPartnerBlock(partner) {
+    const status = (partner.assignment_status || '').toLowerCase();
+    const isPositive = status.includes('complete') || status.includes('partner connected');
+    const badgeClass = isPositive ? 'badge-leaf' : 'badge-saffron';
+
+    let block = `<div class="partner-block">
+        <div class="partner-block-head">
+            <span class="partner-name">${partner.partner_name}</span>
+            <span class="badge ${badgeClass}">${partner.assignment_status}</span>
+        </div>
+        <ul class="milestone-list">`;
+
+    if (partner.milestones.length === 0) {
+        block += `<li class="trl-empty">No milestones recorded.</li>`;
+    } else {
+        partner.milestones.forEach(m => {
+            const isClosed = m.status === "Completed";
+            const statusHtml = isClosed
+                ? `<span class="milestone-status achieved">
+                     <span class="status-dot"></span>
+                     Completed &middot; ${m.date_achieved || ''}
+                   </span>`
+                : `<span class="milestone-status pending">
+                     <span class="status-dot pending-dot"></span>
+                     ${m.status}
+                   </span>`;
+
+            block += `<li class="milestone-item ${isClosed ? 'is-closed' : 'is-pending'}">
+                ${m.template_name}
+                ${statusHtml}
+            </li>`;
+        });
+    }
+
+    block += `</ul></div>`;
+    return block;
+}
+
+</script>
+
+  </div>
+
+  <div>
+      <div class="panel" style="margin-bottom:16px;">
+      <h2>Initial TRL</h2>
+      <ul class="timeline">
+        <li>{{ application.initial_trl | default:"—" }}</li>
+      </ul>
+    </div>
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>Current TRL</h2>
+      <ul class="timeline">
+        <li>{{ application.current_trl | default:"—" }}</li>
+      </ul>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+    <h2>Knowledge partner support</h2>
+
+    {% for stage in application.trl_stages.all %}
+        {% for a in stage.partner_assignments.all %}
+        <div style="margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--line);">
+
+            <strong>{{ a.partner.name }}</strong>
+            <span style="color:var(--ink-soft); font-size:12px;">({{ stage.trl.name }})</span>
+
+                {% if a.partner.short_code != "NA" %}
+            &mdash;
+            {% if a.get_status_display == "Support Completed" or a.get_status_display == "Partner Connected" %}
+                <span class="badge badge-leaf">{{ a.get_status_display }}</span>
+            {% else %}
+                <span class="badge badge-saffron">{{ a.get_status_display }}</span>
+            {% endif %}
+        {% endif %}
+
+            <div style="font-size:13px; color:var(--ink-soft); margin-top:4px;">
+                Allotted {{ a.date_allotted|date:"d M Y"|default:"—" }}
+                {% if a.date_connected %}
+                    · Connected {{ a.date_connected|date:"d M Y" }}
+                {% endif %}
+            </div>
+
+            {% if a.support_provided %}
+                <p style="margin:8px 0 0; font-size:13.5px;">
+                    {{ a.support_provided }}
+                </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% empty %}
+        <p style="color:var(--ink-soft);">
+            No knowledge partner assigned yet.
+        </p>
+    {% endfor %}
+</div>
+
+    <div class="panel" style="margin-bottom:16px;">
+    <h2>Milestones</h2>
+
+    <ul class="timeline">
+        {% for stage in application.trl_stages.all %}
+            {% for a in stage.partner_assignments.all %}
+                {% for ms in a.milestones.all %}
+                <li>
+                    <strong>
+                        {% if ms.template %}
+                            {{ ms.template.description }}
+                        {% else %}
+                            {{ ms.label }}
+                        {% endif %}
+                    </strong>
+                    <span style="color:var(--ink-soft); font-size:11px;">({{ a.partner.short_code }} &middot; {{ stage.trl.name }})</span>
+
+                    {% if ms.status == "closed" %}
+                        <span class="badge badge-leaf">Completed</span>
+                    {% else %}
+                        <span class="badge badge-saffron">{{ ms.get_status_display }}</span>
+                    {% endif %}
+
+                    <div style="font-size:13px; margin-top:2px;">
+                        {{ ms.description }}
+                    </div>
+
+                    {% if ms.action_taken %}
+                    <div style="font-size:13px; margin-top:4px;">
+                        <strong>Action Taken:</strong>
+                        {{ ms.action_taken }}
+                    </div>
+                    {% endif %}
+
+                    {% if ms.date_achieved %}
+                    <div style="font-size:12px; margin-top:4px;">
+                        <strong>Date:</strong>
+                        {{ ms.date_achieved|date:"d M Y" }}
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            {% endfor %}
+        {% empty %}
+            <li style="color:var(--ink-soft);">
+                No milestones recorded.
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>TRL progression</h2>
+      <ul class="timeline">
+        {% for log in application.trl_history.all %}
+        <li><strong>{{ log.trl.name }}</strong><br></li>
+        {% empty %}
+        <li style="color:var(--ink-soft);">No TRL history recorded.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+
+  </div>
+</div>
+{% endblock %}
