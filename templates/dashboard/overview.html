@@ -137,10 +137,12 @@
           <td>{{ app.date_received|date:"d M Y"|default:"—" }}</td>
 
           <td onclick="event.stopPropagation();">
+             {% if request.user.is_superuser or request.user.is_admin_role %}
             <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:12px;"
               onclick="openAssignModal({{ app.id }}, {{ app.initial_trl_id|default:'null' }}, {{ app.current_trl_id|default:'null' }}, '{{ app.medtech_type }}')">
               Assign KP
             </button>
+              {% endif %}
           </td>
 
         </tr>
@@ -325,62 +327,77 @@ function togglePartnerMilestones(checkbox, partnerId) {
 }
 
 function submitAssignment() {
-    const trlId = document.getElementById('assign-trl-select').value;
-    const errorDiv = document.getElementById('assign-modal-error');
-    errorDiv.innerText = '';
+    const trlId = $('#assign-trl-select').val();
+    const initialTrlId = $('#initial-trl-select').val();
+    const currentTrlId = $('#current-trl-select').val();
+    const $errorDiv = $('#assign-modal-error');
+    $errorDiv.text('');
 
     if (!currentApplicationId) {
-        errorDiv.innerText = 'No application selected.';
+        $errorDiv.text('No application selected.');
         return;
     }
     if (!trlId) {
-        errorDiv.innerText = 'Please select a TRL.';
+        $errorDiv.text('TRL Level (for knowledge partner selection)');
+        return;
+    }
+    if (!initialTrlId) {
+        $errorDiv.text('Please select the Initial TRL.');
+        return;
+    }
+    if (!currentTrlId) {
+        $errorDiv.text('Please select the Current TRL.');
         return;
     }
 
-    const checkboxes = document.querySelectorAll('.partner-checkbox:checked');
-    if (checkboxes.length === 0) {
-        errorDiv.innerText = 'Please select at least one knowledge partner.';
+    const $checkboxes = $('.partner-checkbox:checked');
+    if ($checkboxes.length === 0) {
+        $errorDiv.text('Please select at least one knowledge partner.');
         return;
     }
 
     const partners = [];
-    checkboxes.forEach(cb => {
-      const partnerId = cb.value;
-      const milestoneDiv = document.getElementById(`milestones-for-${partnerId}`);
-      const milestones = [];
-milestoneDiv.querySelectorAll('.milestone-row').forEach(row => {
-    const templateId = row.getAttribute('data-template-id');
-    const status = row.querySelector('.milestone-status').value;
-    milestones.push({ template_id: templateId, status: status });
-});
+
+    $checkboxes.each(function () {
+        const partnerId = $(this).val();
+        const milestones = [];
+
+        $(`#milestones-for-${partnerId} .milestone-row`).each(function () {
+            milestones.push({
+                template_id: $(this).attr('data-template-id'),
+                status: $(this).find('.milestone-status').val()
+            });
+        });
+
         partners.push({ partner_id: partnerId, milestones: milestones });
     });
 
-const initialTrlId = document.getElementById('initial-trl-select').value;
-const currentTrlId = document.getElementById('current-trl-select').value;
-
-fetch('/ajax/assign-trl-partner/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
-    body: JSON.stringify({
-        application_id: currentApplicationId,
-        trl_id: trlId,
-        initial_trl_id: initialTrlId || null,
-        current_trl_id: currentTrlId || null,
-        partners: partners,
-    }),
-})
-    .then(r => r.json())
-    .then(data => {
+    $.ajax({
+        url: '/ajax/assign-trl-partner/',
+        type: 'POST',
+        contentType: 'application/json',
+        dataType: 'json',
+        headers: { 'X-CSRFToken': csrftoken },
+        data: JSON.stringify({
+            application_id: currentApplicationId,
+            trl_id: trlId,
+            initial_trl_id: initialTrlId,
+            current_trl_id: currentTrlId,
+            partners: partners
+        })
+    })
+    .done(function (data) {
         if (data.error) {
-            errorDiv.innerText = data.error;
+            $errorDiv.text(data.error);
             return;
         }
         closeAssignModal();
         location.reload();
     })
-    .catch(() => { errorDiv.innerText = 'Something went wrong. Try again.'; });
+    .fail(function (xhr) {
+        const msg = xhr.responseJSON && xhr.responseJSON.error;
+        $errorDiv.text(msg || 'Something went wrong. Try again.');
+    });
 }
 </script>
 

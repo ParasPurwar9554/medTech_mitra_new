@@ -28,7 +28,6 @@
     {% if user.is_authenticated %}
         <span class="user-chip">
             {{ user.get_username }}
-            <em>{{ user.get_role_display|default:user.role }}</em>
         </span>
 
         <form method="post"

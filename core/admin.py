@@ -180,6 +180,10 @@ class PartnerMilestoneTemplateAdmin(admin.ModelAdmin):
 class KnowledgePartnerAssignmentAdmin(admin.ModelAdmin):
     list_display = ("trl_stage", "partner", "status", "date_allotted", "date_connected")
     list_filter = ("partner", "status")
+    search_fields = (
+    "trl_stage__application__reference_no",
+    "partner__name",
+    )
     autocomplete_fields = ("trl_stage",)
     inlines = [MilestoneInline]
 
@@ -199,12 +203,18 @@ class FollowUpAdmin(admin.ModelAdmin):
 @admin.register(TACMeeting)
 class TACMeetingAdmin(admin.ModelAdmin):
     list_display = ("application", "meeting_ref_no", "meeting_date")
+    search_fields = ("application__reference_no",)
     autocomplete_fields = ("application",)
 
 
 @admin.register(Milestone)
 class MilestoneAdmin(admin.ModelAdmin):
     list_display = ("assignment", "label", "description", "status", "date_achieved")
+    search_fields = (
+    "assignment__trl_stage__application__reference_no",
+    "label",
+    "description",
+    )
     list_filter = ("status",)
 
     def save_model(self, request, obj, form, change):
@@ -215,7 +225,7 @@ class MilestoneAdmin(admin.ModelAdmin):
 @admin.register(TRLProgressLog)
 class TRLProgressLogAdmin(admin.ModelAdmin):
     list_display = ("application", "trl", "changed_on")
-
+    search_fields = ("application__reference_no",)
 
 @admin.register(StatusChangeLog)
 class StatusChangeLogAdmin(admin.ModelAdmin):

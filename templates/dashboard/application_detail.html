@@ -96,21 +96,23 @@ function loadTrlDetail(trlId, applicationId) {
     fetch(`/ajax/trl-detail/?trl_id=${trlId}&application_id=${applicationId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.error) {
-                content.innerHTML = `<p style="color:var(--danger);">${data.error}</p>`;
-                return;
+            let html = `<h3>${data.trl_name}</h3>`;
+
+            // Group 1: partners that match this TRL
+            if (data.partners.length > 0) {
+                data.partners.forEach(p => {
+                    html += buildPartnerBlock(p);
+                });
             }
 
-            let html = `<h3>${data.trl_name}</h3>`;
-            html += `<h4>Partner(s) for this TRL</h4>`;
-
+            // Group 2: assigned partners that do not match this TRL
             const otherPartners = data.assigned_partners.filter(
                 p => !data.partners.some(mp => mp.partner_id === p.partner_id)
             );
 
             if (otherPartners.length > 0) {
-                otherPartners.forEach(partner => {
-                    html += buildPartnerBlock(partner);
+                otherPartners.forEach(p => {
+                    html += buildPartnerBlock(p);
                 });
             }
 

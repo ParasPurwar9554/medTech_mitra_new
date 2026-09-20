@@ -134,7 +134,6 @@ def trl_detail_ajax(request):
     assignments = KnowledgePartnerAssignment.objects.filter(
         trl_stage=stage
     ).select_related('partner').order_by('-date_allotted')
-
     all_assigned_partners = []
     matched_partners = []
 
