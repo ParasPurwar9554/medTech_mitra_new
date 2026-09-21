@@ -338,8 +338,7 @@ function submitAssignment() {
         return;
     }
     if (!trlId) {
-        $errorDiv.text('TRL Level (for knowledge partner selection)');
-        return;
+        $errorDiv.text('Please select TRL Level')
     }
     if (!initialTrlId) {
         $errorDiv.text('Please select the Initial TRL.');
