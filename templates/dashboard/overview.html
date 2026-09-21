@@ -6,22 +6,27 @@
 <div class="page-head">
   <div>
     <h1>Innovator Application Dashboard</h1>
-    <p>Applications received, TAC review outcomes, knowledge-partner handholding and TRL progression across the MedTech Mitra pipeline.</p>
+    <p>
+      Applications received, TAC review outcomes, knowledge-partner handholding
+      and TRL progression across the MedTech Mitra pipeline.
+    </p>
   </div>
 </div>
 
-<!-- KPI cards -->
+<!-- ===================== KPI cards ===================== -->
 <div class="kpi-grid">
   <div class="kpi-card">
     <div class="kpi-label">Total Applications</div>
-    <div class="kpi-value">{{ kpis.total_application}}</div>
+    <div class="kpi-value">{{ kpis.total_application }}</div>
     <div class="kpi-sub"></div>
   </div>
+
   <div class="kpi-card">
     <div class="kpi-label">In Progress Applications</div>
     <div class="kpi-value">{{ kpis.in_progress }}</div>
     <div class="kpi-sub"></div>
   </div>
+
   <div class="kpi-card good">
     <div class="kpi-label">Completed</div>
     <div class="kpi-value">{{ kpis.closed }}</div>
@@ -29,209 +34,326 @@
   </div>
 </div>
 
-<!-- Filter bar -->
+<!-- ===================== Filter bar ===================== -->
 <form class="filter-bar" method="get">
+
   <div class="filter-field">
     <label for="by_reference">Reference No</label>
-    <input type="text" name="by_reference" id="by_reference" value="{{ active_filters.by_reference|default:'' }}" placeholder="Search By Ref. No">
+    <input type="text"
+           name="by_reference"
+           id="by_reference"
+           value="{{ active_filters.by_reference|default:'' }}"
+           placeholder="Search By Ref. No">
   </div>
+
   <div class="filter-field">
     <label for="status">Status</label>
     <select name="status" id="status">
       <option value="">All statuses</option>
       {% for value, label in status_choices %}
-        <option value="{{ value }}" {% if active_filters.status == value %}selected{% endif %}>{{ label }}</option>
+        <option value="{{ value }}" {% if active_filters.status == value %}selected{% endif %}>
+          {{ label }}
+        </option>
       {% endfor %}
     </select>
   </div>
+
   <div class="filter-field">
     <label for="medtech_type">Innovation categories</label>
     <select name="medtech_type" id="medtech_type">
       <option value="">All types</option>
       {% for value, label in medtech_type_choices %}
-        <option value="{{ value }}" {% if active_filters.medtech_type == value %}selected{% endif %}>{{ label }}</option>
+        <option value="{{ value }}" {% if active_filters.medtech_type == value %}selected{% endif %}>
+          {{ label }}
+        </option>
       {% endfor %}
     </select>
   </div>
+
   <div class="filter-field">
     <label for="risk_classification">Classification</label>
     <select name="risk_classification" id="risk_classification">
       <option value="">All classes</option>
       {% for value, label in risk_choices %}
-        <option value="{{ value }}" {% if active_filters.risk_classification == value %}selected{% endif %}>{{ label }}</option>
+        <option value="{{ value }}" {% if active_filters.risk_classification == value %}selected{% endif %}>
+          {{ label }}
+        </option>
       {% endfor %}
     </select>
   </div>
+
   <div class="filter-field">
     <label for="partner">Knowledge partner</label>
     <select name="partner" id="partner">
       <option value="">All partners</option>
       {% for p in partners %}
-        <option value="{{ p.short_code }}" {% if active_filters.partner == p.short_code %}selected{% endif %}>{{ p.short_code }}</option>
+        <option value="{{ p.short_code }}" {% if active_filters.partner == p.short_code %}selected{% endif %}>
+          {{ p.short_code }}
+        </option>
       {% endfor %}
     </select>
   </div>
-  <!-- <div class="filter-field">
+
+  <!--
+  <div class="filter-field">
     <label for="date_from">From</label>
     <input type="date" name="date_from" id="date_from" value="{{ active_filters.date_from|default:'' }}">
   </div>
   <div class="filter-field">
     <label for="date_to">To</label>
     <input type="date" name="date_to" id="date_to" value="{{ active_filters.date_to|default:'' }}">
-  </div> -->
+  </div>
+  -->
+
   <div class="filter-actions">
     <a href="{% url 'dashboard:overview' %}" class="btn-secondary">Reset</a>
     <button type="submit" class="btn-primary">Apply filters</button>
   </div>
+
 </form>
-<!-- Table -->
+
+<!-- ===================== Applications table ===================== -->
 <div class="panel">
   <h2>Applications ({{ applications.paginator.count }} total)</h2>
 
   <div class="table-wrap">
     <table class="data-table">
+
+      <colgroup>
+        <col style="width:4%">   <!-- S.N. -->
+        <col style="width:14%">  <!-- Reference -->
+        <col style="width:22%">  <!-- Technology -->
+        <col style="width:11%">  <!-- Category -->
+        <col style="width:8%">   <!-- Class -->
+        <col style="width:10%">  <!-- Status -->
+        <col style="width:17%">  <!-- TRL -->
+        <col style="width:14%">  <!-- Action -->
+      </colgroup>
+
       <thead>
         <tr>
           <th>S.N.</th>
-          <th>Reference No.</th>
-          <th>Technology</th>
-          <th>Applicant</th>
-          <th>Innovation categories</th>
-          <th>Classification</th>
+          <th>Reference / Received</th>
+          <th>Technology / Applicant</th>
+          <th>Category</th>
+          <th>Class</th>
           <th>Status</th>
-          <th>Initial TRL</th>
-          <th>Current TRL</th>
-          <th>Received</th>
-          <th>Action</th>
+          <th>TRL Progress</th>
+           {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner %}
+             <th>Action</th>
+          {% endif %}
         </tr>
       </thead>
 
       <tbody>
         {% for app in applications %}
-        <tr onclick="window.location='{% url 'dashboard:application_detail' app.pk %}'"
-            style="cursor:pointer;">
+          <tr class="clickable-row"
+              onclick="window.location='{% url 'dashboard:application_detail' app.pk %}'">
 
-          <td>{{ forloop.counter }}</td>
-          <td class="ref-code">{{ app.reference_no }}</td>
-          <td>{{ app.technology_name }}</td>
-          <td>{{ app.applicant.name }}</td>
-          <td>{{ app.get_medtech_type_display }}</td>
+            <!-- S.N. -->
+            <td>{{ forloop.counter }}</td>
 
-          <td>
-            {% if app.risk_classification == "A" %}
-              <span class="badge badge-leaf">Class A</span>
-            {% elif app.risk_classification == "B" %}
-              <span class="badge badge-navy">Class B</span>
-            {% elif app.risk_classification == "C" %}
-              <span class="badge badge-saffron">Class C</span>
-            {% elif app.risk_classification == "D" %}
-              <span class="badge badge-danger">Class D</span>
-            {% else %}
-              <span class="badge badge-slate">Not known</span>
-            {% endif %}
-          </td>
+            <!-- Reference / Received -->
+            <td>
+              <div class="ref-code">{{ app.reference_no }}</div>
+              <div class="sub-text">{{ app.date_received|date:"d M Y"|default:"—" }}</div>
+            </td>
 
-          <td><span class="badge badge-slate">{{ app.get_status_display }}</span></td>
-          <td>{{ app.initial_trl.name|default:"—" }}</td>
-          <td>{{ app.current_trl.name|default:"—" }}</td>
-          <td>{{ app.date_received|date:"d M Y"|default:"—" }}</td>
+            <!-- Technology / Applicant -->
+            <td>
+              <div class="main-text">{{ app.technology_name }}</div>
+              <div class="sub-text">{{ app.applicant.name }}</div>
+            </td>
 
-          <td onclick="event.stopPropagation();">
-             {% if request.user.is_superuser or request.user.is_admin_role %}
-            <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:12px;"
-              onclick="openAssignModal({{ app.id }}, {{ app.initial_trl_id|default:'null' }}, {{ app.current_trl_id|default:'null' }}, '{{ app.medtech_type }}')">
-              Assign KP
-            </button>
+            <!-- Category -->
+            <td>{{ app.get_medtech_type_display }}</td>
+
+            <!-- Class -->
+            <td>
+              {% if app.risk_classification == "A" %}
+                <span class="badge badge-leaf">Class A</span>
+              {% elif app.risk_classification == "B" %}
+                <span class="badge badge-navy">Class B</span>
+              {% elif app.risk_classification == "C" %}
+                <span class="badge badge-saffron">Class C</span>
+              {% elif app.risk_classification == "D" %}
+                <span class="badge badge-danger">Class D</span>
+              {% else %}
+                <span class="badge badge-slate">Not known</span>
               {% endif %}
-          </td>
+            </td>
 
-        </tr>
+            <!-- Status -->
+            <td>
+              <span class="badge badge-slate">{{ app.get_status_display }}</span>
+            </td>
+
+            <!-- TRL Progress -->
+            <td>
+              {% if app.current_trl %}
+                <div class="trlp">
+                  <div class="trlp-name">{{ app.current_trl.name }}</div>
+
+                  <div class="trlp-bar" title="TRL {{ app.current_trl.level }} of 9">
+                    <span style="width: {% widthratio app.current_trl.level 9 100 %}%;"></span>
+                  </div>
+
+                  <div class="trlp-meta">
+                    Level {{ app.current_trl.level }} of 9
+                    {% if app.initial_trl %}&middot; Started at TRL-{{ app.initial_trl.level }}{% endif %}
+                  </div>
+                </div>
+              {% else %}
+                <span class="trlp-empty">&mdash;</span>
+              {% endif %}
+            </td>
+
+            <!-- Action -->
+            <td onclick="event.stopPropagation();">
+              <div class="action-buttons">
+
+                {% if request.user.is_superuser or request.user.is_admin_role %}
+                  <button type="button"
+                          class="btn-action btn-assign"
+                          onclick="openAssignModal({{ app.id }}, {{ app.initial_trl_id|default:'null' }}, {{ app.current_trl_id|default:'null' }}, '{{ app.medtech_type }}')">
+                    Assign Partner
+                  </button>
+                {% endif %}
+
+                {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner %}
+                  <button type="button"
+                          class="btn-action btn-milestone"
+                          onclick="openMilestoneModal({{ app.id }})">
+                   Manage Milestones
+                  </button>
+                {% endif %}
+
+              </div>
+            </td>
+
+          </tr>
 
         {% empty %}
-        <tr>
-          <td colspan="10" style="text-align:center; color:var(--ink-soft); padding:30px;">
-            No applications match the selected filters.
-          </td>
-        </tr>
+          <tr>
+            <td colspan="8" style="text-align:center; color:var(--ink-soft); padding:30px;">
+              No applications match the selected filters.
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
+
     </table>
   </div>
 </div>
+
+<!-- ===================== Pagination ===================== -->
 {% if applications.paginator.num_pages > 1 %}
-<div class="pagination" style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:16px;">
+  <div class="pagination"
+       style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:16px;">
 
     {% if applications.has_previous %}
-        <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1">&laquo; First</a>
-        <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.previous_page_number }}">&lsaquo; Prev</a>
+      <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1">&laquo; First</a>
+      <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.previous_page_number }}">&lsaquo; Prev</a>
     {% endif %}
 
     <span>Page {{ applications.number }} of {{ applications.paginator.num_pages }}</span>
 
     {% if applications.has_next %}
-        <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.next_page_number }}">Next &rsaquo;</a>
-        <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.paginator.num_pages }}">Last &raquo;</a>
+      <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.next_page_number }}">Next &rsaquo;</a>
+      <a href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.paginator.num_pages }}">Last &raquo;</a>
     {% endif %}
 
-</div>
+  </div>
 {% endif %}
 
-<!-- ===================== Assign Knowledge Partner Modal ===================== -->
-<div id="assign-modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999;">
+<!-- ===================== Assign Knowledge Partner modal ===================== -->
+<div id="assign-modal-backdrop"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999;">
+
   <div style="background:#fff; max-width:600px; margin:60px auto; padding:24px; border-radius:8px; max-height:80vh; overflow-y:auto;">
-    
-  <h3>Assign Knowledge Partner</h3>
 
-<label>Initial TRL</label>
-<select id="initial-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
-  <option value="">-- Not set --</option>
-  {% for trl in all_trls %}
-    <option value="{{ trl.id }}">{{ trl.name }} {{ trl.medtech_type }}</option>
-  {% endfor %}
-</select>
+    <h3>Assign Knowledge Partner</h3>
 
-<label>Current TRL</label>
-<select id="current-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
-  <option value="">-- Not set --</option>
-  {% for trl in all_trls %}
-    <option value="{{ trl.id }}">{{ trl.name }}</option>
-  {% endfor %}
-</select>
+    <label>Initial TRL</label>
+    <select id="initial-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
+      <option value="">-- Not set --</option>
+      {% for trl in all_trls %}
+        <option value="{{ trl.id }}">{{ trl.name }} {{ trl.medtech_type }}</option>
+      {% endfor %}
+    </select>
 
-<label>TRL Level (for knowledge partner selection)</label>
-<select id="assign-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
-  <option value="">-- Select TRL --</option>
-  {% for trl in all_trls %}
-    <option value="{{ trl.id }}">{{ trl.name }}</option>
-  {% endfor %}
-</select>
- 
+    <label>Current TRL</label>
+    <select id="current-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
+      <option value="">-- Not set --</option>
+      {% for trl in all_trls %}
+        <option value="{{ trl.id }}">{{ trl.name }}</option>
+      {% endfor %}
+    </select>
+
+    <label>TRL Level (for knowledge partner selection)</label>
+    <select id="assign-trl-select" style="width:100%; padding:6px; margin-bottom:14px;">
+      <option value="">-- Select TRL --</option>
+      {% for trl in all_trls %}
+        <option value="{{ trl.id }}">{{ trl.name }}</option>
+      {% endfor %}
+    </select>
+
     <div id="assign-partners-container"></div>
- 
+
     <div style="margin-top:16px; text-align:right;">
       <button type="button" class="btn-secondary" onclick="closeAssignModal()">Cancel</button>
       <button type="button" class="btn-primary" onclick="submitAssignment()">Save</button>
     </div>
+
     <div id="assign-modal-error" style="color:var(--danger); margin-top:10px;"></div>
+
   </div>
 </div>
+
+<!-- ===================== Milestone modal ===================== -->
+<div id="milestone-modal"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+            z-index:9999; align-items:center; justify-content:center;">
+
+  <div style="background:#fff; width:900px; max-width:95%; max-height:85vh; overflow-y:auto;
+              border-radius:8px; padding:20px;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 id="milestone-modal-title" style="margin:0;">Milestones</h3>
+      <button type="button" class="btn-secondary" onclick="closeMilestoneModal()">Close</button>
+    </div>
+
+    <hr>
+
+    <div id="milestone-modal-body"></div>
+
+  </div>
+</div>
+
 {{ trl_definitions_json|json_script:"trl-data" }}
+
+<!-- ===================== Assign modal script ===================== -->
 <script>
 function getCookie(name) {
     let cookieValue = null;
+
     document.cookie.split(';').forEach(c => {
         c = c.trim();
-        if (c.startsWith(name + '=')) cookieValue = decodeURIComponent(c.substring(name.length + 1));
+        if (c.startsWith(name + '=')) {
+            cookieValue = decodeURIComponent(c.substring(name.length + 1));
+        }
     });
+
     return cookieValue;
 }
+
 const csrftoken = getCookie('csrftoken');
 
-let currentApplicationId = null;  
+let currentApplicationId = null;
 
 // Read TRL data once (outside the function)
-
 const allTrlData = JSON.parse($('#trl-data').text());
+
 
 function openAssignModal(applicationId, initialTrlId, currentTrlId, categoryType) {
     currentApplicationId = applicationId;
@@ -251,6 +373,7 @@ function openAssignModal(applicationId, initialTrlId, currentTrlId, categoryType
     fillTrlSelect('#assign-trl-select', filteredTrls, null);
 }
 
+
 function fillTrlSelect(selector, trls, selectedId) {
     const $select = $(selector);
     if ($select.length === 0) return;
@@ -259,6 +382,7 @@ function fillTrlSelect(selector, trls, selectedId) {
 
     trls.forEach(trl => {
         const isSelected = selectedId && String(trl.id) === String(selectedId);
+
         $select.append(
             $('<option></option>')
                 .val(trl.id)
@@ -268,13 +392,16 @@ function fillTrlSelect(selector, trls, selectedId) {
     });
 }
 
+
 function closeAssignModal() {
     $('#assign-modal-backdrop').hide();
 }
 
-document.getElementById('assign-trl-select').addEventListener('change', function() {
+
+document.getElementById('assign-trl-select').addEventListener('change', function () {
     const trlId = this.value;
     const container = document.getElementById('assign-partners-container');
+
     container.innerHTML = '';
     if (!trlId) return;
 
@@ -285,17 +412,25 @@ document.getElementById('assign-trl-select').addEventListener('change', function
                 container.innerHTML = `<p style="color:var(--ink-soft);">No knowledge partners found for this TRL.</p>`;
                 return;
             }
+
             data.partners.forEach(partner => {
                 const block = document.createElement('div');
                 block.style.cssText = "border:1px solid var(--line); padding:10px; margin-bottom:10px; border-radius:6px;";
 
                 let milestonesHtml = '';
+
                 if (partner.milestone_templates.length === 0) {
-                    milestonesHtml = `<p style="color:var(--ink-soft); font-size:12px; margin:6px 0 0;">No milestone checklist defined for this partner.</p>`;
+                    milestonesHtml = `
+                        <p style="color:var(--ink-soft); font-size:12px; margin:6px 0 0;">
+                            No milestone checklist defined for this partner.
+                        </p>
+                    `;
                 } else {
                     partner.milestone_templates.forEach(t => {
                         milestonesHtml += `
-                            <div class="milestone-row" data-template-id="${t.id}" style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:13px;">
+                            <div class="milestone-row"
+                                 data-template-id="${t.id}"
+                                 style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:13px;">
                                 <span style="flex:1;">M-${t.sequence}: ${t.description}</span>
                                 <select class="milestone-status">
                                     <option value="in_progress">In Progress</option>
@@ -308,29 +443,37 @@ document.getElementById('assign-trl-select').addEventListener('change', function
 
                 block.innerHTML = `
                     <label>
-                        <input type="checkbox" class="partner-checkbox" value="${partner.id}"
+                        <input type="checkbox"
+                               class="partner-checkbox"
+                               value="${partner.id}"
                                onchange="togglePartnerMilestones(this, ${partner.id})">
                         <strong>${partner.name} (${partner.short_code})</strong>
                     </label>
-                    <div id="milestones-for-${partner.id}" class="milestones-block" style="display:none; margin-top:8px; padding-left:20px;">
+                    <div id="milestones-for-${partner.id}"
+                         class="milestones-block"
+                         style="display:none; margin-top:8px; padding-left:20px;">
                         ${milestonesHtml}
                     </div>
                 `;
+
                 container.appendChild(block);
             });
         });
 });
+
 
 function togglePartnerMilestones(checkbox, partnerId) {
     const div = document.getElementById(`milestones-for-${partnerId}`);
     div.style.display = checkbox.checked ? 'block' : 'none';
 }
 
+
 function submitAssignment() {
     const trlId = $('#assign-trl-select').val();
     const initialTrlId = $('#initial-trl-select').val();
     const currentTrlId = $('#current-trl-select').val();
     const $errorDiv = $('#assign-modal-error');
+
     $errorDiv.text('');
 
     if (!currentApplicationId) {
@@ -338,8 +481,9 @@ function submitAssignment() {
         return;
     }
     if (!trlId) {
-        $errorDiv.text('Please select TRL Level')
-    }
+       $errorDiv.text('Please select TRL Level');
+         return;
+        }
     if (!initialTrlId) {
         $errorDiv.text('Please select the Initial TRL.');
         return;
@@ -402,19 +546,160 @@ function submitAssignment() {
 
 {% endblock %}
 
+
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script>
-const NAVY = "#123a5e", SAFFRON = "#e07a2c", LEAF = "#2f7d5e", SLATE = "#8a97a3", DANGER = "#b3432b";
-const PALETTE = [NAVY, SAFFRON, LEAF, "#5a7fa3", "#c99354", "#7fae95", SLATE, DANGER];
 
-function baseOptions(extra) {
-  return Object.assign({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: "#eef1f4" } } }
-  }, extra || {});
+<script>
+
+/* ===================== Milestone modal ===================== */
+
+let stageAdvanced = false;   // true if a TRL stage got completed while the popup was open
+
+// stops < > & from breaking the HTML
+function esc(text) {
+    return $('<div>').text(text == null ? '' : text).html();
 }
+
+
+function openMilestoneModal(applicationId) {
+    stageAdvanced = false;
+    $('#milestone-modal-title').text('Milestones');
+    $('#milestone-modal-body').html('Loading...');
+    $('#milestone-modal').css('display', 'flex');
+
+    $.ajax({
+        url: '/ajax/application-milestones/',
+        type: 'GET',
+        dataType: 'json',
+        data: { application_id: applicationId }
+    })
+    .done(function (data) {
+        $('#milestone-modal-title').text('Milestones: ' + data.reference_no + ' - ' + data.technology_name);
+
+        if (data.assignments.length === 0) {
+            const emptyMsg = data.is_admin
+                ? 'No knowledge partner assigned yet.'
+                : 'No milestones are assigned to you for this application.';
+
+            $('#milestone-modal-body').html(`<p>${emptyMsg}</p>`);
+            return;
+        }
+
+        let html = '';
+
+        data.assignments.forEach(function (a) {
+            html += `<div style="margin-bottom:24px;">`;
+            html += `<h4 style="margin-bottom:4px;">${esc(a.partner_name)}</h4>`;
+            html += `<p style="margin:0 0 8px;">${esc(a.trl_name)} | Assignment: ${esc(a.assignment_status)}</p>`;
+            html += `
+                <table class="table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Label</th>
+                            <th>Milestones</th>
+                            <th>Status</th>
+                            <th>Complete Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            if (a.milestones.length === 0) {
+                html += `<tr><td colspan="5">No milestones for this partner.</td></tr>`;
+            }
+
+            a.milestones.forEach(function (m) {
+                let statusCell;
+
+                if (data.can_edit) {
+                    statusCell = `<select class="ms-status-select" data-milestone-id="${m.id}" data-old="${esc(m.status)}">`;
+
+                    data.status_choices.forEach(function (c) {
+                        const sel = c.value === m.status ? 'selected' : '';
+                        statusCell += `<option value="${esc(c.value)}" ${sel}>${esc(c.label)}</option>`;
+                    });
+
+                    statusCell += `</select>`;
+                } else {
+                    statusCell = esc(m.status_display);
+                }
+
+                html += `
+                    <tr>
+                        <td>${esc(m.label)}</td>
+                        <td>${esc(m.description)}</td>
+                        <td>${statusCell}</td>
+                        <td class="ms-date">${esc(m.date_achieved)}</td>
+                        <td class="ms-msg"></td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+        });
+
+        $('#milestone-modal-body').html(html);
+    })
+    .fail(function (xhr) {
+        const msg = xhr.responseJSON && xhr.responseJSON.error;
+        $('#milestone-modal-body').html(`<p style="color:red;">${esc(msg || 'Failed to load milestones.')}</p>`);
+    });
+}
+
+
+function closeMilestoneModal() {
+    $('#milestone-modal').hide();
+
+    if (stageAdvanced) {
+        location.reload();   // the TRL tracker changed, so refresh the page
+    }
+}
+
+
+// click on the dark background closes the popup
+$('#milestone-modal').on('click', function (e) {
+    if (e.target === this) closeMilestoneModal();
+});
+
+
+// save when the status dropdown changes
+$(document).on('change', '.ms-status-select', function () {
+    const $select = $(this);
+    const $row = $select.closest('tr');
+    const $msg = $row.find('.ms-msg');
+    const oldValue = $select.attr('data-old');
+
+    $msg.css('color', '').text('Saving...');
+
+    $.ajax({
+        url: '/ajax/update-milestone-status/',
+        type: 'POST',
+        contentType: 'application/json',
+        dataType: 'json',
+        headers: { 'X-CSRFToken': csrftoken },
+        data: JSON.stringify({
+            milestone_id: $select.data('milestone-id'),
+            status: $select.val()
+        })
+    })
+    .done(function (data) {
+        $select.attr('data-old', $select.val());
+        $row.find('.ms-date').text(data.date_achieved);
+        $msg.css('color', 'green').text('Saved');
+        setTimeout(function () { $msg.text(''); }, 2000);
+
+        if (data.stage_completed) {
+            stageAdvanced = true;
+            $msg.text('Saved. TRL stage completed!');
+        }
+    })
+    .fail(function (xhr) {
+        $select.val(oldValue);   // put the old value back
+        const msg = xhr.responseJSON && xhr.responseJSON.error;
+        $msg.css('color', 'red').text(msg || 'Failed. Try again.');
+    });
+});
 </script>
 {% endblock %}

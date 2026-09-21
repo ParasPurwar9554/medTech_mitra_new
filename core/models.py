@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class TimeStampedModel(models.Model):
@@ -30,6 +31,7 @@ class KnowledgePartner(models.Model):
         help_text="e.g. 'TRL-4,TRL-5,TRL-6' — from the KP-TRL master sheet"
     )
     is_active = models.BooleanField(default=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL,null=True, blank=True,on_delete=models.SET_NULL,related_name="partner_profile",)
 
     class Meta:
         ordering = ["name"]
@@ -51,10 +53,13 @@ class TRLDefinition(models.Model):
     medtech_type = models.CharField(
         max_length=10,
         choices=MedTechCategoryType.choices,
-        blank=True,
         help_text="Leave blank if this TRL definition applies to all MedTech types.",
     )
-    level = models.PositiveSmallIntegerField()  # 1..9
+   # dropdown with 1 to 9 only
+    level = models.PositiveSmallIntegerField(
+        choices=[(i, f"Level {i}") for i in range(1, 10)],
+        validators=[MinValueValidator(1), MaxValueValidator(9)],
+    )
     name = models.CharField(max_length=150)  # "TRL-1 Ideation"
 
     milestone_1 = models.CharField(max_length=255, blank=True)

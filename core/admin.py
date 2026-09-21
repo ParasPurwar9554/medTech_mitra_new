@@ -158,7 +158,7 @@ class ApplicationTRLStageAdmin(admin.ModelAdmin):
 
 @admin.register(KnowledgePartner)
 class KnowledgePartnerAdmin(admin.ModelAdmin):
-    list_display = ("short_code", "name", "applicable_trl_levels", "is_active")
+    list_display = ("short_code", "name", "user","applicable_trl_levels", "is_active")
     search_fields = ("name", "short_code")
 
 

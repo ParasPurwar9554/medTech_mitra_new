@@ -12,5 +12,7 @@ urlpatterns = [
     path('api/trl-drilldown/<int:trl_level>/', views.trl_drilldown, name='trl-drilldown'),
     path("ajax/partners-for-trl/", views.partners_for_trl_ajax, name="partners_for_trl_ajax"),
     path("ajax/assign-trl-partner/", views.assign_trl_partner_ajax, name="assign_trl_partner_ajax"),
+    path("ajax/application-milestones/", views.application_milestones_ajax, name="application_milestones_ajax"),
+    path("ajax/update-milestone-status/", views.update_milestone_status, name="update_milestone_status"),
 
 ]
