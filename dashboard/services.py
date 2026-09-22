@@ -74,15 +74,6 @@ def trl_distribution():
 
 def get_base_queryset(user):
     """Return only the applications this user is allowed to see."""
-    print("Username:", user.username)
-    print("Role value:", user.role)
-    print("is_superuser:", user.is_superuser)
-    print("is_admin_role:", user.is_admin_role)
-    print("is_secretariat:", user.is_secretariat)
-    print("is_support_partner:", user.is_support_partner)
-    print("knowledge_partner_id:", user.knowledge_partner_id)
-    print("user.is_innovator:", user.is_innovator)
-    print("innovator_id:", user.applicant_id)
     # Delegated Admin, Secretariat, superuser: all records
     if user.is_superuser or user.is_admin_role or user.is_secretariat:
         print("IN delegated")

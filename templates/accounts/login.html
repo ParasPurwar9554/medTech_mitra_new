@@ -1,18 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Sign in{% endblock %}
+
 {% block content %}
-<div class="auth-wrap">
-  <div class="auth-card">
-    <h1>Sign in</h1>
-    <form method="post">
-      {% csrf_token %}
-      {% if form.errors %}<p style="color:var(--danger); font-size:13px;">Incorrect username or password.</p>{% endif %}
-      <label for="id_username">Username</label>
-      <input type="text" name="username" id="id_username" autofocus required>
-      <label for="id_password">Password</label>
-      <input type="password" name="password" id="id_password" required>
-      <button type="submit">Sign in</button>
-    </form>
+<div class="d-flex justify-content-center align-items-center py-5">
+  <div class="card shadow-sm" style="max-width:400px; width:100%;">
+    <div class="card-body p-4 p-md-5">
+
+      <div class="text-center mb-4">
+        <span class="brand-mark d-inline-flex align-items-center justify-content-center mb-3"
+              style="width:48px; height:48px; font-size:18px;">MM</span>
+        <h1 class="h4 fw-semibold mb-1" style="font-family:var(--font-display);">Sign in</h1>
+        <p class="text-muted small mb-0">MedTech Mitra Secretariat</p>
+      </div>
+
+      {% if form.errors %}
+        <div class="alert alert-danger py-2 small" role="alert">
+          Incorrect username or password.
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label for="id_username" class="form-label small text-uppercase text-muted">Username</label>
+          <input type="text"
+                 name="username"
+                 id="id_username"
+                 class="form-control"
+                 autofocus
+                 required>
+        </div>
+
+        <div class="mb-4">
+          <label for="id_password" class="form-label small text-uppercase text-muted">Password</label>
+          <input type="password"
+                 name="password"
+                 id="id_password"
+                 class="form-control"
+                 required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Sign in</button>
+
+      </form>
+
+    </div>
   </div>
 </div>
 {% endblock %}
