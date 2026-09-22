@@ -376,7 +376,6 @@ def application_milestones_ajax(request):
     user = request.user
     is_admin = user.is_superuser or user.is_admin_role
 
-    # the partner linked to this login (None if the user is not a KP)
     partner = getattr(user, "partner_profile", None) if user.is_support_partner else None
 
     if not (is_admin or partner):
@@ -400,7 +399,6 @@ def application_milestones_ajax(request):
         .order_by("trl_stage__trl__level", "partner__name")
     )
 
-    # KP sees only their own assignments
     if not is_admin:
         assignments = assignments.filter(partner=partner)
 
@@ -412,6 +410,7 @@ def application_milestones_ajax(request):
             "partner_name": a.partner.name,
             "short_code": a.partner.short_code,
             "assignment_status": a.get_status_display(),
+            "advisory_remarks": a.advisory_remarks,          # NEW
             "milestones": [
                 {
                     "id": m.id,
@@ -429,7 +428,7 @@ def application_milestones_ajax(request):
         "reference_no": application.reference_no,
         "technology_name": application.technology_name,
         "is_admin": is_admin,
-        "can_edit": True,   # admins and KPs can both edit what they see
+        "can_edit": True,
         "status_choices": [
             {"value": v, "label": l} for v, l in Milestone.MilestoneStatus.choices
         ],
@@ -437,45 +436,66 @@ def application_milestones_ajax(request):
     })
 
 
-def can_edit_milestone(user, milestone):
+def can_edit_assignment(user, assignment):
     if user.is_superuser or user.is_admin_role:
         return True
     if user.is_support_partner:
         partner = getattr(user, "partner_profile", None)
-        return partner is not None and milestone.assignment.partner_id == partner.id
+        return partner is not None and assignment.partner_id == partner.id
     return False
 
 
 @login_required
 @require_POST
-def update_milestone_status(request):
+def update_assignment_milestones(request):
     try:
         data = json.loads(request.body)
     except ValueError:
         return JsonResponse({"error": "Invalid data."}, status=400)
 
-    milestone = Milestone.objects.select_related("assignment__trl_stage").filter(
-        id=data.get("milestone_id")
+    assignment = KnowledgePartnerAssignment.objects.select_related("trl_stage").filter(
+        id=data.get("assignment_id")
     ).first()
-    if not milestone:
-        return JsonResponse({"error": "Milestone not found."}, status=404)
+    if not assignment:
+        return JsonResponse({"error": "Assignment not found."}, status=404)
 
-    if not can_edit_milestone(request.user, milestone):
-        return JsonResponse({"error": "You do not have permission to change this milestone."}, status=403)
+    if not can_edit_assignment(request.user, assignment):
+        return JsonResponse({"error": "You do not have permission to change this assignment."}, status=403)
 
-    new_status = data.get("status")
-    if new_status not in Milestone.MilestoneStatus.values:
-        return JsonResponse({"error": "Invalid status."}, status=400)
+    milestone_updates = data.get("milestones", [])
+    remarks = data.get("remarks", "")
 
-    milestone.status = new_status
-    if new_status == Milestone.MilestoneStatus.CLOSED:
-        milestone.date_achieved = milestone.date_achieved or timezone.localdate()
-    else:
-        milestone.date_achieved = None
-    milestone.save()
+    valid_values = Milestone.MilestoneStatus.values
+    milestone_ids = [m.get("milestone_id") for m in milestone_updates]
+
+    # only touch milestones that really belong to this assignment
+    milestones = {
+        str(m.id): m for m in Milestone.objects.filter(
+            id__in=milestone_ids, assignment=assignment
+        )
+    }
+
+    updated = []
+    for item in milestone_updates:
+        milestone = milestones.get(str(item.get("milestone_id")))
+        new_status = item.get("status")
+
+        if not milestone or new_status not in valid_values:
+            continue
+
+        milestone.status = new_status
+        if new_status == Milestone.MilestoneStatus.CLOSED:
+            milestone.date_achieved = milestone.date_achieved or timezone.localdate()
+        else:
+            milestone.date_achieved = None
+        milestone.save()
+        updated.append(milestone)
+
+    assignment.advisory_remarks = remarks
+    assignment.save(update_fields=["advisory_remarks"])
 
     stage_completed = False
-    stage = milestone.assignment.trl_stage
+    stage = assignment.trl_stage
     if stage:
         stage.check_and_advance()
         stage.refresh_from_db()
@@ -483,7 +503,13 @@ def update_milestone_status(request):
 
     return JsonResponse({
         "success": True,
-        "status_display": milestone.get_status_display(),
-        "date_achieved": milestone.date_achieved.strftime("%d %b %Y") if milestone.date_achieved else "-",
         "stage_completed": stage_completed,
+        "milestones": [
+            {
+                "id": m.id,
+                "status_display": m.get_status_display(),
+                "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
+            }
+            for m in updated
+        ],
     })

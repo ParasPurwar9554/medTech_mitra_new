@@ -686,19 +686,18 @@ function openMilestoneModal(applicationId) {
 
         data.assignments.forEach(function (a) {
             html += `
-                <div class="mb-4">
+                <div class="mb-4 pb-2 border-bottom" data-assignment-id="${a.assignment_id}">
                     <h6 class="mb-1">${esc(a.partner_name)}</h6>
                     <p class="text-muted small mb-2">
                         ${esc(a.trl_name)} | Assignment: ${esc(a.assignment_status)}
                     </p>
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-bordered align-middle mb-0">
+                        <table class="table table-sm table-bordered align-middle mb-3">
                             <colgroup>
                                 <col style="width:8%">
                                 <col>
                                 <col style="width:200px">
-                                <col style="width:130px">
                                 <col style="width:130px">
                             </colgroup>
                             <thead class="table-light">
@@ -706,15 +705,14 @@ function openMilestoneModal(applicationId) {
                                     <th>Label</th>
                                     <th>Milestones</th>
                                     <th>Status</th>
-                                    <th>Complete Date</th>
-                                    <th></th>
+                                    <th>Completion Date</th>
                                 </tr>
                             </thead>
                             <tbody>
             `;
 
             if (a.milestones.length === 0) {
-                html += `<tr><td colspan="5" class="text-muted">No milestones for this partner.</td></tr>`;
+                html += `<tr><td colspan="4" class="text-muted">No milestones for this partner.</td></tr>`;
             }
 
             a.milestones.forEach(function (m) {
@@ -722,8 +720,7 @@ function openMilestoneModal(applicationId) {
 
                 if (data.can_edit) {
                     statusCell = `<select class="form-select form-select-sm ms-status-select"
-                                          data-milestone-id="${m.id}"
-                                          data-old="${esc(m.status)}">`;
+                                          data-milestone-id="${m.id}">`;
 
                     data.status_choices.forEach(function (c) {
                         const sel = c.value === m.status ? 'selected' : '';
@@ -741,12 +738,30 @@ function openMilestoneModal(applicationId) {
                         <td>${esc(m.description)}</td>
                         <td>${statusCell}</td>
                         <td class="ms-date">${esc(m.date_achieved)}</td>
-                        <td class="ms-msg small"></td>
                     </tr>
                 `;
             });
 
-            html += `</tbody></table></div></div>`;
+            html += `</tbody></table></div>`;
+
+            // Remarks + Save (only for users who can edit)
+            if (data.can_edit) {
+                html += `
+              <div class="mb-2">
+                  <label class="form-label small text-uppercase text-muted mb-1">Remarks</label>
+                  <textarea class="form-control form-control-sm assign-remarks-input"
+                            rows="2"
+                            placeholder="Add remarks for this partner...">${esc(a.advisory_remarks)}</textarea>
+              </div>
+
+              <div class="d-flex align-items-center justify-content-end gap-2">
+                  <span class="ms-msg small"></span>
+                  <button type="button" class="btn btn-success btn-sm ms-save-btn">Save</button>
+              </div>
+          `;
+            }
+
+            html += `</div>`;
         });
 
         $('#milestone-modal-body').html(html);
@@ -760,7 +775,7 @@ function openMilestoneModal(applicationId) {
 }
 
 
-// Runs every time the popup finishes closing (X button, Close button, anything)
+// Runs every time the popup finishes closing
 document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', function () {
     $('#milestone-modal-body').empty();
 
@@ -771,29 +786,46 @@ document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', f
 });
 
 
-// Save when the status dropdown changes
-$(document).on('change', '.ms-status-select', function () {
-    const $select = $(this);
-    const $row = $select.closest('tr');
-    const $msg = $row.find('.ms-msg');
-    const oldValue = $select.attr('data-old');
+// Save one partner's milestones + remarks together
+$(document).on('click', '.ms-save-btn', function () {
+    const $btn = $(this);
+    const $block = $btn.closest('[data-assignment-id]');
+    const $msg = $block.find('.ms-msg');
+    const assignmentId = $block.data('assignment-id');
 
+    const milestones = [];
+    $block.find('.ms-status-select').each(function () {
+        milestones.push({
+            milestone_id: $(this).data('milestone-id'),
+            status: $(this).val()
+        });
+    });
+
+    const remarks = $block.find('.assign-remarks-input').val();
+
+    $btn.prop('disabled', true);
     setMsg($msg, 'text-muted', 'Saving...');
 
     $.ajax({
-        url: '/ajax/update-milestone-status/',
+        url: '/ajax/update-assignment-milestones/',
         type: 'POST',
         contentType: 'application/json',
         dataType: 'json',
         headers: { 'X-CSRFToken': csrftoken },
         data: JSON.stringify({
-            milestone_id: $select.data('milestone-id'),
-            status: $select.val()
+            assignment_id: assignmentId,
+            remarks: remarks,
+            milestones: milestones
         })
     })
     .done(function (data) {
-        $select.attr('data-old', $select.val());
-        $row.find('.ms-date').text(data.date_achieved);
+        // update the "Complete Date" cells with the fresh values from the server
+        data.milestones.forEach(function (m) {
+            $block.find(`.ms-status-select[data-milestone-id="${m.id}"]`)
+                  .closest('tr')
+                  .find('.ms-date')
+                  .text(m.date_achieved);
+        });
 
         if (data.stage_completed) {
             stageAdvanced = true;
@@ -802,11 +834,13 @@ $(document).on('change', '.ms-status-select', function () {
             setMsg($msg, 'text-success', 'Saved');
             setTimeout(function () { $msg.text(''); }, 2000);
         }
+
+        $btn.prop('disabled', false);
     })
     .fail(function (xhr) {
-        $select.val(oldValue);   // put the old value back
         const msg = xhr.responseJSON && xhr.responseJSON.error;
         setMsg($msg, 'text-danger', msg || 'Failed. Try again.');
+        $btn.prop('disabled', false);
     });
 });
 
