@@ -16,7 +16,7 @@ from .models import (
     Applicant, Application, TACMeeting, KnowledgePartner,
     KnowledgePartnerAssignment, FollowUp, TRLDefinition,
     PartnerMilestoneTemplate, Milestone, TRLProgressLog, StatusChangeLog,
-    ApplicationTRLStage,
+    ApplicationTRLStage,AssignmentChangeLog
 )
 
 
@@ -234,6 +234,20 @@ class StatusChangeLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # audit log: system-generated only
+
+@admin.register(AssignmentChangeLog)
+class AssignmentChangeLogAdmin(admin.ModelAdmin):
+    list_display = ("assignment", "field_changed", "old_value", "new_value", "created_by", "created_at")
+    list_filter = ("field_changed", "created_by")
+    search_fields = (
+        "assignment__trl_stage__application__reference_no",
+        "assignment__partner__name",
+    )
+    date_hierarchy = "created_at"
+    readonly_fields = [f.name for f in AssignmentChangeLog._meta.fields]  # log entries are never edited by hand
+
+    def has_add_permission(self, request):
+        return False   # entries are only created by the save view, never typed in by hand    
 
 
 # ---------------------------------------------------------------------------

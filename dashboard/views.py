@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.core.paginator import Paginator
 
-from core.models import Application, KnowledgePartner,KnowledgePartnerAssignment,Milestone,TRLDefinition,ApplicationTRLStage
+from core.models import Application, KnowledgePartner,KnowledgePartnerAssignment,Milestone,TRLDefinition,ApplicationTRLStage,AssignmentChangeLog
 from . import services
 
 from django.http import JsonResponse
@@ -468,20 +468,34 @@ def update_assignment_milestones(request):
     valid_values = Milestone.MilestoneStatus.values
     milestone_ids = [m.get("milestone_id") for m in milestone_updates]
 
-    # only touch milestones that really belong to this assignment
     milestones = {
         str(m.id): m for m in Milestone.objects.filter(
             id__in=milestone_ids, assignment=assignment
         )
     }
 
+    logs_to_create = []
     updated = []
+
     for item in milestone_updates:
         milestone = milestones.get(str(item.get("milestone_id")))
         new_status = item.get("status")
 
         if not milestone or new_status not in valid_values:
             continue
+
+        old_status = milestone.status
+        if old_status == new_status:
+            continue   # nothing changed — no need to log or save this one
+
+        logs_to_create.append(AssignmentChangeLog(
+            assignment=assignment,
+            milestone=milestone,
+            field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_STATUS,
+            old_value=milestone.get_status_display(),
+            new_value=dict(Milestone.MilestoneStatus.choices).get(new_status, new_status),
+            created_by=request.user,
+        ))
 
         milestone.status = new_status
         if new_status == Milestone.MilestoneStatus.CLOSED:
@@ -491,8 +505,20 @@ def update_assignment_milestones(request):
         milestone.save()
         updated.append(milestone)
 
-    assignment.advisory_remarks = remarks
-    assignment.save(update_fields=["advisory_remarks"])
+    old_remarks = assignment.advisory_remarks
+    if remarks != old_remarks:
+        logs_to_create.append(AssignmentChangeLog(
+            assignment=assignment,
+            field_changed=AssignmentChangeLog.FieldChanged.REMARKS,
+            old_value=old_remarks,
+            new_value=remarks,
+            created_by=request.user,
+        ))
+        assignment.advisory_remarks = remarks
+        assignment.save(update_fields=["advisory_remarks"])
+
+    if logs_to_create:
+        AssignmentChangeLog.objects.bulk_create(logs_to_create)
 
     stage_completed = False
     stage = assignment.trl_stage
@@ -504,6 +530,7 @@ def update_assignment_milestones(request):
     return JsonResponse({
         "success": True,
         "stage_completed": stage_completed,
+        "changed_count": len(logs_to_create),
         "milestones": [
             {
                 "id": m.id,
@@ -512,4 +539,33 @@ def update_assignment_milestones(request):
             }
             for m in updated
         ],
+    })
+
+
+@login_required
+@require_GET
+def assignment_history_ajax(request):
+    assignment = KnowledgePartnerAssignment.objects.filter(
+        id=request.GET.get("assignment_id")
+    ).first()
+    if not assignment:
+        return JsonResponse({"error": "Assignment not found."}, status=404)
+
+    if not can_edit_assignment(request.user, assignment):
+        return JsonResponse({"error": "You do not have permission."}, status=403)
+
+    logs = assignment.change_logs.select_related("created_by", "milestone")[:50]
+
+    return JsonResponse({
+        "logs": [
+            {
+                "field_changed": log.get_field_changed_display(),
+                "milestone_label": log.milestone.label if log.milestone else "",
+                "old_value": log.old_value,
+                "new_value": log.new_value,
+                "changed_by": log.created_by.get_username() if log.created_by else "Unknown",
+                "changed_at": log.created_at.strftime("%d %b %Y, %I:%M %p"),
+            }
+            for log in logs
+        ]
     })

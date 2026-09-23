@@ -14,5 +14,6 @@ urlpatterns = [
     path("ajax/assign-trl-partner/", views.assign_trl_partner_ajax, name="assign_trl_partner_ajax"),
     path("ajax/application-milestones/", views.application_milestones_ajax, name="application_milestones_ajax"),
     path("ajax/update-assignment-milestones/", views.update_assignment_milestones, name="update_assignment_milestones"),
+    path("ajax/assignment-history/", views.assignment_history_ajax, name="assignment_history_ajax"),
 
 ]

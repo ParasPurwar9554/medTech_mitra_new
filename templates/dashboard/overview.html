@@ -745,20 +745,23 @@ function openMilestoneModal(applicationId) {
             html += `</tbody></table></div>`;
 
             // Remarks + Save (only for users who can edit)
-            if (data.can_edit) {
+          if (data.can_edit) {
                 html += `
-              <div class="mb-2">
-                  <label class="form-label small text-uppercase text-muted mb-1">Remarks</label>
-                  <textarea class="form-control form-control-sm assign-remarks-input"
-                            rows="2"
-                            placeholder="Add remarks for this partner...">${esc(a.advisory_remarks)}</textarea>
-              </div>
+                    <div class="mb-2">
+                        <label class="form-label small text-uppercase text-muted mb-1">Remarks</label>
+                        <textarea class="form-control form-control-sm assign-remarks-input"
+                                  rows="2"
+                                  placeholder="Add remarks for this partner...">${esc(a.advisory_remarks)}</textarea>
+                    </div>
 
-              <div class="d-flex align-items-center justify-content-end gap-2">
-                  <span class="ms-msg small"></span>
-                  <button type="button" class="btn btn-success btn-sm ms-save-btn">Save</button>
-              </div>
-          `;
+                    <div class="d-flex align-items-center justify-content-end gap-2">
+                        <span class="ms-msg small"></span>
+                        <a href="#" class="small ms-history-toggle">View history</a>
+                        <button type="button" class="btn btn-success btn-sm ms-save-btn">Save</button>
+                    </div>
+
+                    <div class="ms-history-body small mt-2 d-none"></div>
+                `;
             }
 
             html += `</div>`;
@@ -841,6 +844,60 @@ $(document).on('click', '.ms-save-btn', function () {
         const msg = xhr.responseJSON && xhr.responseJSON.error;
         setMsg($msg, 'text-danger', msg || 'Failed. Try again.');
         $btn.prop('disabled', false);
+    });
+});
+
+
+// new handler, placed near the other $(document).on(...) handlers
+$(document).on('click', '.ms-history-toggle', function (e) {
+    e.preventDefault();
+
+    const $link = $(this);
+    const $block = $link.closest('[data-assignment-id]');
+    const $body = $block.find('.ms-history-body');
+    const assignmentId = $block.data('assignment-id');
+
+    if (!$body.hasClass('d-none')) {
+        $body.addClass('d-none').empty();
+        $link.text('View history');
+        return;
+    }
+
+    $link.text('Hide history');
+    $body.removeClass('d-none').html('<span class="text-muted">Loading...</span>');
+
+    $.ajax({
+        url: '/ajax/assignment-history/',
+        type: 'GET',
+        dataType: 'json',
+        data: { assignment_id: assignmentId }
+    })
+    .done(function (data) {
+        if (data.logs.length === 0) {
+            $body.html('<span class="text-muted">No changes recorded yet.</span>');
+            return;
+        }
+
+        let rows = '<ul class="list-unstyled mb-0">';
+        data.logs.forEach(function (log) {
+            const what = log.milestone_label
+                ? `${esc(log.field_changed)} (${esc(log.milestone_label)})`
+                : esc(log.field_changed);
+
+            rows += `
+                <li class="mb-1">
+                    <strong>${esc(log.changed_by)}:</strong> changed ${what}
+                    from "<em>${esc(log.old_value)}</em>" to "<em>${esc(log.new_value)}</em>"
+                    &middot; <span class="text-muted">${esc(log.changed_at)}</span>
+                </li>
+            `;
+        });
+        rows += '</ul>';
+
+        $body.html(rows);
+    })
+    .fail(function () {
+        $body.html('<span class="text-danger">Could not load history.</span>');
     });
 });
 

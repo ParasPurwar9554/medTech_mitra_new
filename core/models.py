@@ -22,7 +22,6 @@ class TimeStampedModel(models.Model):
 # ---------------------------------------------------------------------------
 
 class KnowledgePartner(models.Model):
-    """CDSCO, AMTZ, AIM-NITI Aayog, INTENT, HTA, BIS, etc."""
     name = models.CharField(max_length=150, unique=True)
     short_code = models.CharField(max_length=20, unique=True)
     description = models.TextField(blank=True)
@@ -41,9 +40,6 @@ class KnowledgePartner(models.Model):
 
 
 class TRLDefinition(models.Model):
-    """Master table for the 9 Technology Readiness Levels and their milestones.
-    Kept per MedTech type since milestone wording differs between Device,
-    Vaccine, and Assistive Technology tracks."""
 
     class MedTechCategoryType(models.TextChoices):
         MMDD = "MM-DD", "Device & Diagnostics"
@@ -55,12 +51,12 @@ class TRLDefinition(models.Model):
         choices=MedTechCategoryType.choices,
         help_text="Leave blank if this TRL definition applies to all MedTech types.",
     )
-   # dropdown with 1 to 9 only
+  
     level = models.PositiveSmallIntegerField(
         choices=[(i, f"Level {i}") for i in range(1, 10)],
         validators=[MinValueValidator(1), MaxValueValidator(9)],
     )
-    name = models.CharField(max_length=150)  # "TRL-1 Ideation"
+    name = models.CharField(max_length=150)
 
     milestone_1 = models.CharField(max_length=255, blank=True)
     milestone_2 = models.CharField(max_length=255, blank=True)
@@ -77,7 +73,6 @@ class TRLDefinition(models.Model):
 
 
 class PartnerMilestoneTemplate(models.Model):
-    """Master milestone checklist per Knowledge Partner (from 'Partners Milestones' sheet)."""
     partner = models.ForeignKey(KnowledgePartner, on_delete=models.CASCADE,
                                  related_name="milestone_templates")
     sequence = models.PositiveSmallIntegerField()
@@ -96,8 +91,6 @@ class PartnerMilestoneTemplate(models.Model):
 # ---------------------------------------------------------------------------
 
 class Applicant(TimeStampedModel):
-    """The innovator / organisation. Kept separate so one person/org can
-    submit multiple applications over time without duplicating identity data."""
 
     name = models.CharField(max_length=200)
     innovator_name = models.CharField(max_length=200, blank=True)
@@ -119,8 +112,6 @@ class Applicant(TimeStampedModel):
 
 
 class Application(TimeStampedModel):
-    """One innovation/technology submitted for MedTech Mitra support.
-    This is the aggregate root the dashboard reports against."""
 
     class MedTechType(models.TextChoices):
         MMDD = "MM-DD", "Device & Diagnostics"
@@ -229,9 +220,6 @@ class TACMeeting(TimeStampedModel):
 
 
 class ApplicationTRLStage(TimeStampedModel):
-    """One row per TRL level that an application has entered.
-    This is the 'box' you click on in the horizontal TRL1->TRL9 tracker.
-    """
 
     class StageStatus(models.TextChoices):
         IN_PROGRESS = "in_progress", "In Progress"
@@ -261,27 +249,22 @@ class ApplicationTRLStage(TimeStampedModel):
         print(">>> check_and_advance called for stage:", self.id, self.trl.name, self.status)
 
         all_milestones = Milestone.objects.filter(assignment__trl_stage=self)
-        print(">>> milestone count:", all_milestones.count())
+   
         for m in all_milestones:
             print("   -", m.id, m.status)
 
         if not all_milestones.exists():
-            print(">>> STOP: no milestones")
             return
         if all_milestones.exclude(status=Milestone.MilestoneStatus.CLOSED).exists():
-            print(">>> STOP: some milestone not closed")
             return
         if self.status == self.StageStatus.COMPLETED:
-            print(">>> STOP: stage already completed")
             return
 
-        print(">>> ADVANCING NOW")
         self.status = self.StageStatus.COMPLETED
         self.completed_date = timezone.now().date()
         self.save()
 
         next_trl = TRLDefinition.objects.filter(level=self.trl.level + 1).first()
-        print(">>> next_trl found:", next_trl)
         if next_trl:
             ApplicationTRLStage.objects.get_or_create(
                 application=self.application, trl=next_trl,
@@ -322,7 +305,6 @@ class KnowledgePartnerAssignment(TimeStampedModel):
 
 
 class FollowUp(TimeStampedModel):
-    """A follow-up query/meeting cycle for a KP assignment (can repeat: 1st, 2nd, ...)."""
     assignment = models.ForeignKey(KnowledgePartnerAssignment, on_delete=models.CASCADE,
                                     related_name="follow_ups")
     sequence = models.PositiveSmallIntegerField(default=1)
@@ -361,10 +343,34 @@ class Milestone(TimeStampedModel):
         ordering = ["assignment", "id"]
 
 
+class AssignmentChangeLog(TimeStampedModel):
+    """Audit trail: every milestone status change and every remarks change,
+    with who made it (created_by, from TimeStampedModel) and when."""
+
+    class FieldChanged(models.TextChoices):
+        MILESTONE_STATUS = "milestone_status", "Milestone Status"
+        REMARKS = "remarks", "Remarks"
+
+    assignment = models.ForeignKey(
+        KnowledgePartnerAssignment, on_delete=models.CASCADE,
+        related_name="change_logs",
+    )
+    milestone = models.ForeignKey(
+        Milestone, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="change_logs",
+        help_text="Set only when field_changed is Milestone Status.",
+    )
+    field_changed = models.CharField(max_length=20, choices=FieldChanged.choices)
+    old_value = models.CharField(max_length=255, blank=True)
+    new_value = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.assignment} — {self.get_field_changed_display()} by {self.created_by}"
+
 class TRLProgressLog(TimeStampedModel):
-    """Audit trail: every time an application's TRL changes, log it.
-    This is what powers the 'TRL progression over time' dashboard chart
-    and gives a government auditor a defensible history."""
     application = models.ForeignKey(Application, on_delete=models.CASCADE,
                                      related_name="trl_history")
     trl = models.ForeignKey(TRLDefinition, on_delete=models.PROTECT, related_name="+")
@@ -376,8 +382,6 @@ class TRLProgressLog(TimeStampedModel):
 
 
 class StatusChangeLog(TimeStampedModel):
-    """Generic audit trail for Application.status transitions — required for
-    a government system so every change is traceable to a user and timestamp."""
     application = models.ForeignKey(Application, on_delete=models.CASCADE,
                                      related_name="status_history")
     from_status = models.CharField(max_length=30, blank=True)
