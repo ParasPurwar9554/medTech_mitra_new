@@ -181,22 +181,30 @@
             <!-- Class -->
             <td>
               {% if app.risk_classification == "A" %}
-                <span class="badge text-bg-success">Class A</span>
+                <span>Class A</span>
               {% elif app.risk_classification == "B" %}
-                <span class="badge text-bg-primary">Class B</span>
+                <span>Class B</span>
               {% elif app.risk_classification == "C" %}
-                <span class="badge text-bg-warning">Class C</span>
+                <span>Class C</span>
               {% elif app.risk_classification == "D" %}
-                <span class="badge text-bg-danger">Class D</span>
+                <span>Class D</span>
               {% else %}
-                <span class="badge text-bg-secondary">Not known</span>
+                <span >Not known</span>
               {% endif %}
             </td>
 
             <!-- Status -->
-            <td>
-              <span class="badge text-bg-secondary">{{ app.get_status_display }}</span>
-            </td>
+                  <td>
+            {% if app.status == "in_progress" %}
+                <span class="badge text-bg-warning">In Progress</span>
+            {% elif app.status == "closed" %}
+                <span class="badge text-bg-success">Completed</span>
+            {% else %}
+                <span class="badge text-bg-secondary">
+                    {{ app.get_status_display }}
+                </span>
+            {% endif %}
+        </td>
 
             <!-- TRL Progress -->
             <td>
@@ -519,15 +527,26 @@ $(document).on('change', '#assign-trl-select', function () {
                     </p>
                 `;
             } else {
-                partner.milestone_templates.forEach(function (t) {
+                    partner.milestone_templates.forEach(function (t) {
+                    const checkId = `ms-${partner.id}-${t.id}`;
+
                     milestonesHtml += `
-                        <div class="milestone-row d-flex align-items-center gap-2 my-2 small"
-                             data-template-id="${t.id}">
-                            <span class="flex-grow-1">M-${esc(t.sequence)}: ${esc(t.description)}</span>
-                            <select class="form-select form-select-sm assign-milestone-status" style="width:auto;">
-                                <option value="in_progress">In Progress</option>
-                                <option value="closed">Closed</option>
-                            </select>
+                        <div class="milestone-row my-2 small" data-template-id="${t.id}">
+
+                            <div class="d-flex align-items-center gap-2">
+                                <input class="form-check-input mt-0 milestone-applicable"
+                                       type="checkbox"
+                                       id="${checkId}"
+                                       checked>
+                                <label class="flex-grow-1 mb-0" for="${checkId}">
+                                    M-${esc(t.sequence)}: ${esc(t.description)}
+                                </label>
+                                <select class="form-select form-select-sm assign-milestone-status" style="width:auto;">
+                                    <option value="notyeststart">Not Yet Started</option> 
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="closed">Completed</option>
+                                </select>
+                            </div>
                         </div>
                     `;
                 });
@@ -541,7 +560,7 @@ $(document).on('change', '#assign-trl-select', function () {
                                id="partner-check-${partner.id}"
                                value="${partner.id}">
                         <label class="form-check-label fw-semibold" for="partner-check-${partner.id}">
-                            ${esc(partner.name)} (${esc(partner.short_code)})
+                            ${esc(partner.name)}
                         </label>
                     </div>
 
@@ -557,6 +576,13 @@ $(document).on('change', '#assign-trl-select', function () {
     });
 });
 
+// Enable / disable the status dropdown when a milestone is ticked / unticked
+$(document).on('change', '.milestone-applicable', function () {
+    const $row = $(this).closest('.milestone-row');
+
+    $row.find('.assign-milestone-status').prop('disabled', !this.checked);
+    $row.toggleClass('text-muted', !this.checked);
+});
 
 // Show / hide the milestone list when a partner is ticked
 $(document).on('change', '.partner-checkbox', function () {
@@ -585,32 +611,48 @@ function submitAssignment() {
         $errorDiv.text('Please select the Current TRL.');
         return;
     }
-    if (!trlId) {
-        $errorDiv.text('Please select TRL Level');
-        return;
-    }
-
+    
     const $checkboxes = $('.partner-checkbox:checked');
-    if ($checkboxes.length === 0) {
+
+    // Partners are needed only if a TRL Level was chosen
+    if (trlId && $checkboxes.length === 0) {
         $errorDiv.text('Please select at least one knowledge partner.');
         return;
     }
 
-    const partners = [];
+       const partners = [];
+    let missingMilestones = false;
 
     $checkboxes.each(function () {
         const partnerId = $(this).val();
+        const $rows = $(`#milestones-for-${partnerId} .milestone-row`);
         const milestones = [];
 
-        $(`#milestones-for-${partnerId} .milestone-row`).each(function () {
+        $rows.each(function () {
+            // Skip milestones that are not applicable
+            if (!$(this).find('.milestone-applicable').is(':checked')) {
+                return;   // same as "continue" inside jQuery .each()
+            }
+
             milestones.push({
                 template_id: $(this).attr('data-template-id'),
                 status: $(this).find('.assign-milestone-status').val()
             });
         });
 
+        // Partner has milestones, but none are ticked
+        if ($rows.length > 0 && milestones.length === 0) {
+            missingMilestones = true;
+            return false;   // stop the loop
+        }
+
         partners.push({ partner_id: partnerId, milestones: milestones });
     });
+
+    if (missingMilestones) {
+        $errorDiv.text('Please tick at least one applicable milestone for each selected partner.');
+        return;
+    }
 
     $saveBtn.prop('disabled', true);   // stops double-click saving twice
 
@@ -622,7 +664,7 @@ function submitAssignment() {
         headers: { 'X-CSRFToken': csrftoken },
         data: JSON.stringify({
             application_id: currentApplicationId,
-            trl_id: trlId,
+            trl_id: trlId || null,
             initial_trl_id: initialTrlId,
             current_trl_id: currentTrlId,
             partners: partners
@@ -697,14 +739,16 @@ function openMilestoneModal(applicationId) {
                             <colgroup>
                                 <col style="width:8%">
                                 <col>
-                                <col style="width:200px">
-                                <col style="width:130px">
+                                <col style="width:170px">
+                                <col style="width:250px">
+                                <col style="width:120px">
                             </colgroup>
                             <thead class="table-light">
                                 <tr>
                                     <th>Label</th>
                                     <th>Milestones</th>
                                     <th>Status</th>
+                                    <th>Remarks</th>
                                     <th>Completion Date</th>
                                 </tr>
                             </thead>
@@ -712,13 +756,15 @@ function openMilestoneModal(applicationId) {
             `;
 
             if (a.milestones.length === 0) {
-                html += `<tr><td colspan="4" class="text-muted">No milestones for this partner.</td></tr>`;
+                html += `<tr><td colspan="5" class="text-muted">No milestones for this partner.</td></tr>`;
             }
 
             a.milestones.forEach(function (m) {
                 let statusCell;
+                let remarksCell;
 
                 if (data.can_edit) {
+                    // Status dropdown
                     statusCell = `<select class="form-select form-select-sm ms-status-select"
                                           data-milestone-id="${m.id}">`;
 
@@ -728,8 +774,17 @@ function openMilestoneModal(applicationId) {
                     });
 
                     statusCell += `</select>`;
+
+                    // Remarks box
+                    remarksCell = `<textarea class="form-control form-control-sm ms-remarks-input"
+                                             rows="2"
+                                             data-milestone-id="${m.id}"
+                                             placeholder="Remarks...">${esc(m.remarks)}</textarea>`;
                 } else {
                     statusCell = esc(m.status_display);
+                    remarksCell = m.remarks
+                        ? esc(m.remarks)
+                        : '<span class="text-muted">&mdash;</span>';
                 }
 
                 html += `
@@ -737,6 +792,7 @@ function openMilestoneModal(applicationId) {
                         <td>${esc(m.label)}</td>
                         <td>${esc(m.description)}</td>
                         <td>${statusCell}</td>
+                        <td>${remarksCell}</td>
                         <td class="ms-date">${esc(m.date_achieved)}</td>
                     </tr>
                 `;
@@ -744,16 +800,10 @@ function openMilestoneModal(applicationId) {
 
             html += `</tbody></table></div>`;
 
-            // Remarks + Save (only for users who can edit)
-          if (data.can_edit) {
+            // Partner remarks + Save (only for users who can edit)
+            if (data.can_edit) {
                 html += `
-                    <div class="mb-2">
-                        <label class="form-label small text-uppercase text-muted mb-1">Remarks</label>
-                        <textarea class="form-control form-control-sm assign-remarks-input"
-                                  rows="2"
-                                  placeholder="Add remarks for this partner...">${esc(a.advisory_remarks)}</textarea>
-                    </div>
-
+                  
                     <div class="d-flex align-items-center justify-content-end gap-2">
                         <span class="ms-msg small"></span>
                         <a href="#" class="small ms-history-toggle">View history</a>
@@ -790,6 +840,7 @@ document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', f
 
 
 // Save one partner's milestones + remarks together
+// Save one partner's milestones + remarks together
 $(document).on('click', '.ms-save-btn', function () {
     const $btn = $(this);
     const $block = $btn.closest('[data-assignment-id]');
@@ -798,9 +849,12 @@ $(document).on('click', '.ms-save-btn', function () {
 
     const milestones = [];
     $block.find('.ms-status-select').each(function () {
+        const milestoneId = $(this).data('milestone-id');
+
         milestones.push({
-            milestone_id: $(this).data('milestone-id'),
-            status: $(this).val()
+            milestone_id: milestoneId,
+            status: $(this).val(),
+            remarks: $block.find(`.ms-remarks-input[data-milestone-id="${milestoneId}"]`).val()   // NEW
         });
     });
 
@@ -822,13 +876,21 @@ $(document).on('click', '.ms-save-btn', function () {
         })
     })
     .done(function (data) {
-        // update the "Complete Date" cells with the fresh values from the server
+        // Update the "Completion Date" cells with fresh values from the server
         data.milestones.forEach(function (m) {
             $block.find(`.ms-status-select[data-milestone-id="${m.id}"]`)
                   .closest('tr')
                   .find('.ms-date')
                   .text(m.date_achieved);
         });
+
+        // If history is open, reload it so the new changes show
+        const $history = $block.find('.ms-history-body');
+        if (!$history.hasClass('d-none')) {
+            const $toggle = $block.find('.ms-history-toggle');
+            $toggle.trigger('click');   // close
+            $toggle.trigger('click');   // open again (fresh data)
+        }
 
         if (data.stage_completed) {
             stageAdvanced = true;
@@ -846,7 +908,6 @@ $(document).on('click', '.ms-save-btn', function () {
         $btn.prop('disabled', false);
     });
 });
-
 
 // new handler, placed near the other $(document).on(...) handlers
 $(document).on('click', '.ms-history-toggle', function (e) {

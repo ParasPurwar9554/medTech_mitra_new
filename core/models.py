@@ -143,8 +143,8 @@ class Application(TimeStampedModel):
     class ApplicationStatus(models.TextChoices):
         IN_PROGRESS = "in_progress", "In Progress"
         CLOSED = "closed", "Completed"
-        RESOLVED="resolved","Resolved"
-        ASSIGNED_TO_KP = "assigned_to_kp", "Assigned to KP"
+        #RESOLVED="resolved","Resolved"
+        #ASSIGNED_TO_KP = "assigned_to_kp", "Assigned to KP"
 
     reference_no = models.CharField(max_length=50, unique=True,)
     applicant = models.ForeignKey(Applicant, on_delete=models.PROTECT,
@@ -184,6 +184,9 @@ class Application(TimeStampedModel):
     final_status_notes = models.TextField(blank=True)
     final_status_date = models.DateField(null=True, blank=True)
     closure_date = models.DateField(null=True, blank=True)
+    reason_for_closure = models.TextField(blank=True,null=True)
+    summary_Technology = models.TextField(blank=True,null=True)
+    
 
     class Meta:
         ordering = ["-date_received"]
@@ -338,6 +341,7 @@ class Milestone(TimeStampedModel):
     status = models.CharField(max_length=15, choices=MilestoneStatus.choices,
                                default=MilestoneStatus.IN_PROGRESS)             # <-- changed
     date_achieved = models.DateField(null=True, blank=True)
+    remarks = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["assignment", "id"]
@@ -350,6 +354,7 @@ class AssignmentChangeLog(TimeStampedModel):
     class FieldChanged(models.TextChoices):
         MILESTONE_STATUS = "milestone_status", "Milestone Status"
         REMARKS = "remarks", "Remarks"
+        MILESTONE_REMARKS = "milestone_remarks", "Milestone Remarks"
 
     assignment = models.ForeignKey(
         KnowledgePartnerAssignment, on_delete=models.CASCADE,

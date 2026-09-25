@@ -244,71 +244,97 @@ def assign_trl_partner_ajax(request):
         return JsonResponse({"error": "Invalid data"}, status=400)
 
     application_id = data.get("application_id")
-    trl_id = data.get("trl_id")
+    trl_id = data.get("trl_id")                  # can be None now
     partners_data = data.get("partners", [])
     initial_trl_id = data.get("initial_trl_id")
     current_trl_id = data.get("current_trl_id")
 
+    # CHANGED: check application on its own
     application = Application.objects.filter(id=application_id).first()
-    trl = TRLDefinition.objects.filter(id=trl_id).first()
+    if not application:
+        return JsonResponse({"error": "Application not found"}, status=404)
 
-    if not application or not trl:
-        return JsonResponse({"error": "Application or TRL not found"}, status=404)
-    if not partners_data:
-        return JsonResponse({"error": "Select at least one knowledge partner"}, status=400)
+    # CHANGED: TRL Level is optional
+    trl = None
+    if trl_id:
+        trl = TRLDefinition.objects.filter(id=trl_id).first()
+        if not trl:
+            return JsonResponse({"error": "TRL not found"}, status=404)
+
+        # Partners are needed only when a TRL Level is chosen
+        if not partners_data:
+            return JsonResponse({"error": "Select at least one knowledge partner"}, status=400)
 
     changed = False
+    today = timezone.now().date()
+    user = request.user if request.user.is_authenticated else None
 
     # ---- Explicit Initial TRL / Current TRL from the popup dropdowns ----
     if initial_trl_id:
         initial_trl = TRLDefinition.objects.filter(id=initial_trl_id).first()
         if initial_trl and application.initial_trl_id != initial_trl.id:
             application.initial_trl = initial_trl
-            application.initial_trl_date = timezone.now().date()
+            application.initial_trl_date = today
             changed = True
 
     if current_trl_id:
         current_trl = TRLDefinition.objects.filter(id=current_trl_id).first()
         if current_trl and application.current_trl_id != current_trl.id:
             application.current_trl = current_trl
-            application.current_trl_date = timezone.now().date()
+            application.current_trl_date = today
             changed = True
             TRLProgressLog.objects.create(
                 application=application,
                 trl=current_trl,
-                changed_on=timezone.now().date(),
+                changed_on=today,
                 remarks=f"Current TRL set to {current_trl.name} via Assign Knowledge Partner action.",
-                created_by=request.user if request.user.is_authenticated else None,
+                created_by=user,
             )
 
-    # ---- Fallback: if neither dropdown was used, keep application in sync
-    #      with the TRL being assigned right now (first-time / lower TRL cases) ----
-    if not application.initial_trl_id:
-        application.initial_trl = trl
-        application.initial_trl_date = timezone.now().date()
-        changed = True
+    # ---- Fallback: keep application in sync with the TRL being assigned ----
+    # CHANGED: runs only when a TRL Level was chosen
+    if trl:
+        if not application.initial_trl_id:
+            application.initial_trl = trl
+            application.initial_trl_date = today
+            changed = True
 
-    if not application.current_trl_id or trl.level > application.current_trl.level:
-        application.current_trl = trl
-        application.current_trl_date = timezone.now().date()
-        changed = True
-        TRLProgressLog.objects.create(
-            application=application,
-            trl=trl,
-            changed_on=timezone.now().date(),
-            remarks=f"Current TRL set to {trl.name} via Assign Knowledge Partner action.",
-            created_by=request.user if request.user.is_authenticated else None,
-        )
+        # CHANGED: don't overwrite a Current TRL the user picked in the dropdown
+        if not current_trl_id and (
+            not application.current_trl_id or trl.level > application.current_trl.level
+        ):
+            application.current_trl = trl
+            application.current_trl_date = today
+            changed = True
+            TRLProgressLog.objects.create(
+                application=application,
+                trl=trl,
+                changed_on=today,
+                remarks=f"Current TRL set to {trl.name} via Assign Knowledge Partner action.",
+                created_by=user,
+            )
 
     if changed:
         application.save()
 
-    # ---- TRL stage + partner + milestone logic ----
+    # NEW: no TRL Level chosen -> only Initial/Current TRL were saved, stop here
+    if not trl:
+        return JsonResponse({
+            "success": True,
+            "assignments_created": 0,
+            "milestones_created": 0,
+            "stage_status": None,
+            "application_initial_trl": application.initial_trl.name if application.initial_trl else None,
+            "application_current_trl": application.current_trl.name if application.current_trl else None,
+        })
+
+    # ---- TRL stage + partner + milestone logic (unchanged) ----
     stage, stage_created = ApplicationTRLStage.objects.get_or_create(
-        application=application, trl=trl,
+        application=application,
+        trl=trl,
         defaults={
             "status": ApplicationTRLStage.StageStatus.IN_PROGRESS,
-            "start_date": timezone.now().date(),
+            "start_date": today,
         },
     )
 
@@ -316,9 +342,9 @@ def assign_trl_partner_ajax(request):
         TRLProgressLog.objects.create(
             application=application,
             trl=trl,
-            changed_on=timezone.now().date(),
+            changed_on=today,
             remarks=f"{trl.name} stage opened with knowledge partner assignment.",
-            created_by=request.user if request.user.is_authenticated else None,
+            created_by=user,
         )
 
     assignments_created = 0
@@ -330,8 +356,9 @@ def assign_trl_partner_ajax(request):
             continue
 
         assignment, was_created = KnowledgePartnerAssignment.objects.get_or_create(
-            trl_stage=stage, partner=partner,
-            defaults={"date_allotted": timezone.now().date()},
+            trl_stage=stage,
+            partner=partner,
+            defaults={"date_allotted": today},
         )
         if was_created:
             assignments_created += 1
@@ -353,12 +380,12 @@ def assign_trl_partner_ajax(request):
                 label=f"M-{template.sequence}",
                 description=template.description,
                 status=status,
-                date_achieved=timezone.now().date() if status == "closed" else None,
+                date_achieved=today if status == "closed" else None,
             )
             milestones_created += 1
 
-    #stage.check_and_advance()
-    #stage.refresh_from_db()
+    # stage.check_and_advance()
+    # stage.refresh_from_db()
 
     return JsonResponse({
         "success": True,
@@ -417,6 +444,7 @@ def application_milestones_ajax(request):
                     "label": m.label,
                     "description": m.description or (m.template.description if m.template else ""),
                     "status": m.status,
+                    "remarks": m.remarks, 
                     "status_display": m.get_status_display(),
                     "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
                 }
@@ -466,6 +494,7 @@ def update_assignment_milestones(request):
     remarks = data.get("remarks", "")
 
     valid_values = Milestone.MilestoneStatus.values
+    status_labels = dict(Milestone.MilestoneStatus.choices)
     milestone_ids = [m.get("milestone_id") for m in milestone_updates]
 
     milestones = {
@@ -479,32 +508,56 @@ def update_assignment_milestones(request):
 
     for item in milestone_updates:
         milestone = milestones.get(str(item.get("milestone_id")))
-        new_status = item.get("status")
-
-        if not milestone or new_status not in valid_values:
+        if not milestone:
             continue
 
-        old_status = milestone.status
-        if old_status == new_status:
-            continue   # nothing changed — no need to log or save this one
+        changed = False
 
-        logs_to_create.append(AssignmentChangeLog(
-            assignment=assignment,
-            milestone=milestone,
-            field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_STATUS,
-            old_value=milestone.get_status_display(),
-            new_value=dict(Milestone.MilestoneStatus.choices).get(new_status, new_status),
-            created_by=request.user,
-        ))
+        # ---- 1. Status ----
+        new_status = item.get("status")
+        if new_status in valid_values and new_status != milestone.status:
+            logs_to_create.append(AssignmentChangeLog(
+                assignment=assignment,
+                milestone=milestone,
+                field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_STATUS,
+                old_value=milestone.get_status_display(),
+                new_value=status_labels.get(new_status, new_status),
+                created_by=request.user,
+            ))
 
-        milestone.status = new_status
-        if new_status == Milestone.MilestoneStatus.CLOSED:
-            milestone.date_achieved = milestone.date_achieved or timezone.localdate()
-        else:
-            milestone.date_achieved = None
-        milestone.save()
-        updated.append(milestone)
+            milestone.status = new_status
+            if new_status == Milestone.MilestoneStatus.CLOSED:
+                milestone.date_achieved = milestone.date_achieved or timezone.localdate()
+            else:
+                milestone.date_achieved = None
 
+            changed = True
+
+        # ---- 2. Remarks (NEW) ----
+        # Only check if the page sent "remarks", so old pages can't wipe them
+        if "remarks" in item:
+            new_remarks = (item.get("remarks") or "").strip()
+            old_remarks = milestone.remarks or ""
+
+            if new_remarks != old_remarks:
+                logs_to_create.append(AssignmentChangeLog(
+                    assignment=assignment,
+                    milestone=milestone,
+                    field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_REMARKS,
+                    old_value=old_remarks or "-",
+                    new_value=new_remarks or "-",
+                    created_by=request.user,
+                ))
+
+                milestone.remarks = new_remarks
+                changed = True
+
+        # ---- Save once if anything changed ----
+        if changed:
+            milestone.save()
+            updated.append(milestone)
+
+    # ---- Overall assignment remarks (unchanged) ----
     old_remarks = assignment.advisory_remarks
     if remarks != old_remarks:
         logs_to_create.append(AssignmentChangeLog(
@@ -535,6 +588,7 @@ def update_assignment_milestones(request):
             {
                 "id": m.id,
                 "status_display": m.get_status_display(),
+                "remarks": m.remarks,          # NEW
                 "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
             }
             for m in updated

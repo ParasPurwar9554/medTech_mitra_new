@@ -85,40 +85,187 @@
       </div>
     </div>
 
-    <!-- ---------- Application Details ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">Application Details</div>
+<!-- ---------- Application Details ---------- -->
+<div class="card mb-3">
+  <div class="card-header bg-white fw-semibold">
+    Application Details
+  </div>
 
-      <div class="card-body">
-        <dl class="row mb-0">
-          <dt class="col-sm-4">Support Category</dt>
-          <dd class="col-sm-8">{{ application.support_category|capfirst|default:"—" }}</dd>
+  <div class="card-body">
 
-          <dt class="col-sm-4">Status</dt>
-          <dd class="col-sm-8">
-            <span class="badge text-bg-secondary">{{ application.get_status_display }}</span>
-          </dd>
+    <!-- =========================================================
+         1. APPLICATION INFORMATION
+    ========================================================== -->
+    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+      Application Information
+    </h6>
 
-          <dt class="col-sm-4">Risk classification</dt>
-          <dd class="col-sm-8">{{ application.get_risk_classification_display }}</dd>
+    <dl class="row mb-4">
 
-          <dt class="col-sm-4">Innovation stage</dt>
-          <dd class="col-sm-8">{{ application.get_innovation_stage_display|default:"—" }}</dd>
+      <!-- Reference -->
+      <dt class="col-sm-4">Reference No.</dt>
+      <dd class="col-sm-8">
+        {{ application.reference_no|default:"—" }}
+      </dd>
 
-          <dt class="col-sm-4">Intended use</dt>
-          <dd class="col-sm-8">{{ application.intended_use_statement|default:"—" }}</dd>
+      <!-- Applicant -->
+      <dt class="col-sm-4">Applicant</dt>
+      <dd class="col-sm-8">
+        {{ application.applicant|default:"—" }}
+      </dd>
 
-          <dt class="col-sm-4">Target Population</dt>
-          <dd class="col-sm-8">{{ application.target_population|default:"—" }}</dd>
+      <!-- MedTech Type -->
+      <dt class="col-sm-4">MedTech Type</dt>
+      <dd class="col-sm-8">
+        {{ application.get_medtech_type_display|default:"—" }}
+      </dd>
 
-          <dt class="col-sm-4">Summary</dt>
-          <dd class="col-sm-8">{{ application.query_text|default:"—"|safe }}</dd>
+      <!-- Technology -->
+      <dt class="col-sm-4">Technology Name</dt>
+      <dd class="col-sm-8">
+        {{ application.technology_name|default:"—" }}
+      </dd>
 
-          <dt class="col-sm-4">Date received</dt>
-          <dd class="col-sm-8 mb-0">{{ application.date_received|date:"d M Y"|default:"—" }}</dd>
-        </dl>
-      </div>
-    </div>
+      <!-- Date Received -->
+      <dt class="col-sm-4">Date Received</dt>
+      <dd class="col-sm-8">
+        {{ application.date_received|date:"d M Y"|default:"—" }}
+      </dd>
+
+    </dl>
+
+
+    <!-- =========================================================
+         2. TECHNOLOGY & REGULATORY INFORMATION
+    ========================================================== -->
+    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+      Technology &amp; Regulatory Information
+    </h6>
+
+    <dl class="row mb-4">
+
+      <!-- Risk -->
+      <dt class="col-sm-4">Risk Classification</dt>
+      <dd class="col-sm-8">
+        {{ application.get_risk_classification_display|default:"—" }}
+      </dd>
+
+      <!-- Device Category -->
+      <dt class="col-sm-4">Device Category</dt>
+      <dd class="col-sm-8">
+        {{ application.get_device_category_display|default:"—" }}
+      </dd>
+
+      <!-- Innovation Stage -->
+      <dt class="col-sm-4">Innovation Stage</dt>
+      <dd class="col-sm-8">
+        {{ application.get_innovation_stage_display|default:"—" }}
+      </dd>
+
+      <!-- Test License -->
+      <dt class="col-sm-4">Test License Received</dt>
+      <dd class="col-sm-8">
+        {% if application.test_license_received == True %}
+          Yes
+        {% elif application.test_license_received == False %}
+          No
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+
+      <!-- Intended Use -->
+      <dt class="col-sm-4">Intended Use</dt>
+      <dd class="col-sm-8">
+        {{ application.intended_use_statement|default:"—" }}
+      </dd>
+
+      <!-- Use Environment -->
+      <dt class="col-sm-4">Use Environment</dt>
+      <dd class="col-sm-8">
+        {{ application.use_environment|default:"—" }}
+      </dd>
+
+      <!-- Target Population -->
+      <dt class="col-sm-4">Target Population</dt>
+      <dd class="col-sm-8">
+        {{ application.target_population|default:"—" }}
+      </dd>
+
+      <!-- Area -->
+      <dt class="col-sm-4">Area of Application</dt>
+      <dd class="col-sm-8">
+        {{ application.area_of_application|default:"—" }}
+      </dd>
+
+    </dl>
+
+
+    <!-- =========================================================
+         3. SUPPORT & REQUIREMENTS
+    ========================================================== -->
+    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+      Support &amp; Requirements
+    </h6>
+
+    <dl class="row mb-4">
+
+      <!-- Support Category -->
+      <dt class="col-sm-4">Support Category</dt>
+      <dd class="col-sm-8">
+        {{ application.get_support_category_display|default:"—" }}
+      </dd>
+
+      <!-- Support Requested -->
+      <dt class="col-sm-4">Support Requested</dt>
+      <dd class="col-sm-8">
+        {{ application.support_type_requested|default:"—" }}
+      </dd>
+
+      <!-- Summary -->
+      <dt class="col-sm-4">Summary</dt>
+      <dd class="col-sm-8">
+        {{ application.query_text|default:"—"|safe }}
+      </dd>
+
+    </dl>
+
+
+    <!-- =========================================================
+         4. STATUS & CLOSURE INFORMATION
+    ========================================================== -->
+    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+      Status &amp; Closure Information
+    </h6>
+
+    <dl class="row mb-0">
+
+      <!-- Status -->
+      <dt class="col-sm-4">Status</dt>
+      <dd class="col-sm-8">
+        <span class="badge text-bg-secondary">
+          {{ application.get_status_display }}
+        </span>
+      </dd>
+
+      <!-- Closure Reason -->
+      <dt class="col-sm-4">Reason for Closure</dt>
+      <dd class="col-sm-8">
+        {{ application.final_status_notes|default:"—" }}
+      </dd>
+
+      <!-- Closure Date -->
+      <dt class="col-sm-4">Closure Date</dt>
+      <dd class="col-sm-8">
+        {{ application.closure_date|date:"d M Y"|default:"—" }}
+      </dd>
+
+    </dl>
+
+  </div>
+</div>
+
+
 
     <!-- ---------- TAC meetings ---------- -->
     <div class="card mb-3">
@@ -252,7 +399,7 @@
     </div>
 
     <!-- ---------- TRL progression ---------- -->
-    <div class="card mb-3">
+    <!-- <div class="card mb-3">
       <div class="card-header bg-white fw-semibold">TRL progression</div>
 
       <ul class="list-group list-group-flush">
@@ -262,7 +409,7 @@
           <li class="list-group-item text-muted">No TRL history recorded.</li>
         {% endfor %}
       </ul>
-    </div>
+    </div> -->
 
   </div>
 </div>

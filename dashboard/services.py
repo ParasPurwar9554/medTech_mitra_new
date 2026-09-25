@@ -17,16 +17,14 @@ def kpi_summary(queryset=None):
     #total = qs.count()
     in_progress = qs.filter(status=Application.ApplicationStatus.IN_PROGRESS).count()
     closed = qs.filter(status=Application.ApplicationStatus.CLOSED).count()
-    resolved = qs.filter(status=Application.ApplicationStatus.RESOLVED).count()
-    assign_to_kp = qs.filter(status=Application.ApplicationStatus.ASSIGNED_TO_KP).count()
+    #resolved = qs.filter(status=Application.ApplicationStatus.RESOLVED).count()
+    #assign_to_kp = qs.filter(status=Application.ApplicationStatus.ASSIGNED_TO_KP).count()
     assigned_partners = KnowledgePartnerAssignment.objects.values("partner").distinct().count()
 
     return {
-        "total_application":in_progress+closed+resolved+assign_to_kp,
-        "in_progress": in_progress + assign_to_kp,
+        "total_application":in_progress+closed,
+        "in_progress": in_progress,
         "closed":closed,
-        "resolved":resolved,
-        "assign_to_kp":assign_to_kp
     }
 
 

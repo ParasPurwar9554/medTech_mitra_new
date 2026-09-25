@@ -209,7 +209,7 @@ class TACMeetingAdmin(admin.ModelAdmin):
 
 @admin.register(Milestone)
 class MilestoneAdmin(admin.ModelAdmin):
-    list_display = ("assignment", "label", "description", "status", "date_achieved")
+    list_display = ("assignment", "label", "description","remarks", "status", "date_achieved")
     search_fields = (
     "assignment__trl_stage__application__reference_no",
     "label",
