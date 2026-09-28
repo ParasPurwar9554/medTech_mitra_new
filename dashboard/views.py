@@ -21,7 +21,7 @@ from core.models import TRLProgressLog
 def overview(request):
     qs = services.apply_dashboard_filters(request)
     applications_qs = qs.select_related("applicant","current_trl").order_by(F("date_received").desc(nulls_last=True),"-id",)
-    paginator = Paginator(applications_qs, 100)
+    paginator = Paginator(applications_qs, 20)
     page_number = request.GET.get("page", 1)
     applications_page = paginator.get_page(page_number)
     trl_qs = (

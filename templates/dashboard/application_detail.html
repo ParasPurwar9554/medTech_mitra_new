@@ -276,9 +276,9 @@
           <li class="list-group-item">
             <strong>{{ m.meeting_date|date:"d M Y"|default:"Date TBD" }}</strong>
             &mdash; {{ m.meeting_ref_no|default:"" }}<br>
-            <span class="text-muted">
-              {{ m.final_tac_response|default:m.first_meeting_outcome|default:"No outcome recorded yet." }}
-            </span>
+           <div class="text-muted">
+              {{ m.final_tac_response|default:m.first_meeting_outcome|default:"No outcome recorded yet."|safe }}
+            </div>
           </li>
         {% empty %}
           <li class="list-group-item text-muted">No TAC meetings recorded.</li>

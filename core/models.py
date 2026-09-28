@@ -142,8 +142,8 @@ class Application(TimeStampedModel):
 
     class ApplicationStatus(models.TextChoices):
         IN_PROGRESS = "in_progress", "In Progress"
-        CLOSED = "closed", "Completed"
-        #RESOLVED="resolved","Resolved"
+        CLOSED = "closed", "Closed"
+        COMPLTED="completed","Completed"
         #ASSIGNED_TO_KP = "assigned_to_kp", "Assigned to KP"
 
     reference_no = models.CharField(max_length=50, unique=True,)

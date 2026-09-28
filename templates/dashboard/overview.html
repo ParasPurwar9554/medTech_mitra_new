@@ -5,8 +5,8 @@
 
 <!-- ===================== Page heading ===================== -->
 <div class="mb-4">
-  <h1 class="h3 fw-semibold mb-1" style="font-family:var(--font-display);">
-    Innovator Application Dashboard
+  <h1 class="h3 fw-semibold mb-2 section-heading">
+      Innovator Application Dashboard
   </h1>
   <p class="text-muted mb-0">
     Applications received, TAC review outcomes, knowledge-partner handholding
@@ -14,38 +14,57 @@
   </p>
 </div>
 
-<!-- ===================== KPI cards ===================== -->
 <div class="row g-3 mb-4">
 
-  <div class="col-12 col-md-4">
-    <div class="card h-100 shadow-sm">
+  <!-- Total Applications -->
+  <div class="col-12 col-md-3">
+    <div class="card h-100 shadow-sm kpi-card kpi-total">
       <div class="card-body">
-        <div class="text-uppercase small text-muted">Total Applications</div>
-        <div class="display-6 fw-semibold">{{ kpis.total_application }}</div>
+        <div class="kpi-label">Total applications</div>
+        <div class="display-6 fw-semibold kpi-value">
+          {{ kpis.total_application }}
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="col-12 col-md-4">
-    <div class="card h-100 shadow-sm">
+  <!-- In Progress -->
+  <div class="col-12 col-md-3">
+    <div class="card h-100 shadow-sm kpi-card kpi-progress">
       <div class="card-body">
-        <div class="text-uppercase small text-muted">In Progress Applications</div>
-        <div class="display-6 fw-semibold">{{ kpis.in_progress }}</div>
+        <div class="kpi-label">In progress</div>
+        <div class="display-6 fw-semibold kpi-value">
+          {{ kpis.in_progress }}
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="col-12 col-md-4">
-    <div class="card h-100 shadow-sm">
+  <!-- Closed -->
+  <div class="col-12 col-md-3">
+    <div class="card h-100 shadow-sm kpi-card kpi-closed">
       <div class="card-body">
-        <div class="text-uppercase small text-muted">Completed</div>
-        <div class="display-6 fw-semibold text-success">{{ kpis.closed }}</div>
+        <div class="kpi-label">Closed</div>
+        <div class="display-6 fw-semibold kpi-value">
+          {{ kpis.closed }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="col-12 col-md-3">
+    <div class="card h-100 shadow-sm kpi-card kpi-done">
+      <div class="card-body">
+        <div class="kpi-label">Completed</div>
+        <div class="display-6 fw-semibold kpi-value">
+          {{ kpis.completed }}
+        </div>
       </div>
     </div>
   </div>
 
 </div>
-
 <!-- ===================== Filter bar ===================== -->
 <div class="card mb-4">
   <div class="card-body">
@@ -111,7 +130,7 @@
 
       <div class="col-12 col-lg-auto d-flex gap-2">
         <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
-        <button type="submit" class="btn btn-primary">Apply filters</button>
+        <button type="submit" class="btn btn-icmr">Apply filters</button>
       </div>
 
     </form>
@@ -120,7 +139,7 @@
 
 <!-- ===================== Applications table ===================== -->
 <div class="card">
-  <div class="card-header bg-white fw-semibold">
+  <div class="card-header card-header-icmr">
     Applications ({{ applications.paginator.count }} total)
   </div>
 
@@ -189,22 +208,24 @@
               {% elif app.risk_classification == "D" %}
                 <span>Class D</span>
               {% else %}
-                <span >Not known</span>
+                <span>Not known</span>
               {% endif %}
             </td>
 
             <!-- Status -->
-                  <td>
-            {% if app.status == "in_progress" %}
+            <td>
+              {% if app.status == "in_progress" %}
                 <span class="badge text-bg-warning">In Progress</span>
-            {% elif app.status == "closed" %}
+              {% elif app.status == "closed" %}
+                <span class="badge text-bg-secondary">Closed</span>
+              {% elif app.status == "completed" %}
                 <span class="badge text-bg-success">Completed</span>
-            {% else %}
+              {% else %}
                 <span class="badge text-bg-secondary">
-                    {{ app.get_status_display }}
+                  {{ app.get_status_display }}
                 </span>
-            {% endif %}
-        </td>
+              {% endif %}
+            </td>
 
             <!-- TRL Progress -->
             <td>
@@ -228,7 +249,6 @@
               {% endif %}
             </td>
 
-            <!-- Action (only for users who can see a button) -->
             {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner %}
               <td onclick="event.stopPropagation();">
                 <div class="d-grid gap-2">
@@ -311,12 +331,6 @@
   </nav>
 {% endif %}
 
-
-<!-- =========================================================================
-     Bootstrap 5 modal: Assign Partner
-     data-bs-backdrop="static"  -> clicking outside does NOT close it
-     data-bs-keyboard="false"   -> the Esc key does NOT close it
-     ========================================================================= -->
 <div class="modal fade" id="assign-modal" tabindex="-1"
      aria-labelledby="assign-modal-title" aria-hidden="true"
      data-bs-backdrop="static" data-bs-keyboard="false">
@@ -368,10 +382,6 @@
   </div>
 </div>
 
-
-<!-- =========================================================================
-     Bootstrap 5 modal: Milestones
-     ========================================================================= -->
 <div class="modal fade" id="milestone-modal" tabindex="-1"
      aria-labelledby="milestone-modal-title" aria-hidden="true"
      data-bs-backdrop="static" data-bs-keyboard="false">
@@ -401,10 +411,6 @@
 {% block extra_js %}
 <script>
 
-/* =========================================================================
-   Shared helpers (used by both popups)
-   ========================================================================= */
-
 function getCookie(name) {
     let cookieValue = null;
 
@@ -422,21 +428,16 @@ const csrftoken = getCookie('csrftoken');
 
 let currentApplicationId = null;
 
-// Read TRL data once (outside the functions)
 const allTrlData = JSON.parse($('#trl-data').text());
 
-
-// Stops < > & from breaking the HTML
 function esc(text) {
     return $('<div>').text(text == null ? '' : text).html();
 }
 
-// Returns the Bootstrap modal object for an element id
 function getModal(id) {
     return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 }
 
-// Shows a small status message with a Bootstrap text colour class
 function setMsg($el, colorClass, text) {
     $el.removeClass('text-success text-danger text-muted')
        .addClass(colorClass)
@@ -527,7 +528,7 @@ $(document).on('change', '#assign-trl-select', function () {
                     </p>
                 `;
             } else {
-                    partner.milestone_templates.forEach(function (t) {
+                partner.milestone_templates.forEach(function (t) {
                     const checkId = `ms-${partner.id}-${t.id}`;
 
                     milestonesHtml += `
@@ -542,7 +543,7 @@ $(document).on('change', '#assign-trl-select', function () {
                                     M-${esc(t.sequence)}: ${esc(t.description)}
                                 </label>
                                 <select class="form-select form-select-sm assign-milestone-status" style="width:auto;">
-                                    <option value="notyeststart">Not Yet Started</option> 
+                                    <option value="notyeststart">Not Yet Started</option>
                                     <option value="in_progress">In Progress</option>
                                     <option value="closed">Completed</option>
                                 </select>
@@ -576,7 +577,7 @@ $(document).on('change', '#assign-trl-select', function () {
     });
 });
 
-// Enable / disable the status dropdown when a milestone is ticked / unticked
+
 $(document).on('change', '.milestone-applicable', function () {
     const $row = $(this).closest('.milestone-row');
 
@@ -584,7 +585,7 @@ $(document).on('change', '.milestone-applicable', function () {
     $row.toggleClass('text-muted', !this.checked);
 });
 
-// Show / hide the milestone list when a partner is ticked
+
 $(document).on('change', '.partner-checkbox', function () {
     $('#milestones-for-' + this.value).toggleClass('d-none', !this.checked);
 });
@@ -611,7 +612,7 @@ function submitAssignment() {
         $errorDiv.text('Please select the Current TRL.');
         return;
     }
-    
+
     const $checkboxes = $('.partner-checkbox:checked');
 
     // Partners are needed only if a TRL Level was chosen
@@ -620,7 +621,7 @@ function submitAssignment() {
         return;
     }
 
-       const partners = [];
+    const partners = [];
     let missingMilestones = false;
 
     $checkboxes.each(function () {
@@ -800,10 +801,9 @@ function openMilestoneModal(applicationId) {
 
             html += `</tbody></table></div>`;
 
-            // Partner remarks + Save (only for users who can edit)
+            // Save + history (only for users who can edit)
             if (data.can_edit) {
                 html += `
-                  
                     <div class="d-flex align-items-center justify-content-end gap-2">
                         <span class="ms-msg small"></span>
                         <a href="#" class="small ms-history-toggle">View history</a>
@@ -840,7 +840,6 @@ document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', f
 
 
 // Save one partner's milestones + remarks together
-// Save one partner's milestones + remarks together
 $(document).on('click', '.ms-save-btn', function () {
     const $btn = $(this);
     const $block = $btn.closest('[data-assignment-id]');
@@ -854,7 +853,7 @@ $(document).on('click', '.ms-save-btn', function () {
         milestones.push({
             milestone_id: milestoneId,
             status: $(this).val(),
-            remarks: $block.find(`.ms-remarks-input[data-milestone-id="${milestoneId}"]`).val()   // NEW
+            remarks: $block.find(`.ms-remarks-input[data-milestone-id="${milestoneId}"]`).val()
         });
     });
 
@@ -909,7 +908,8 @@ $(document).on('click', '.ms-save-btn', function () {
     });
 });
 
-// new handler, placed near the other $(document).on(...) handlers
+
+// Show / hide change history for one partner
 $(document).on('click', '.ms-history-toggle', function (e) {
     e.preventDefault();
 

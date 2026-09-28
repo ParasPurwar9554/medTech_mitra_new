@@ -1,47 +1,66 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Sign in{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-center align-items-center py-5">
-  <div class="card shadow-sm" style="max-width:400px; width:100%;">
+<div class="d-flex justify-content-center align-items-center py-4 py-md-5">
+  <div class="card shadow-sm login-card">
     <div class="card-body p-4 p-md-5">
 
+      <!-- ===================== Logo + heading ===================== -->
       <div class="text-center mb-4">
-        <span class="brand-mark d-inline-flex align-items-center justify-content-center mb-3"
-              style="width:48px; height:48px; font-size:18px;">MM</span>
-        <h1 class="h4 fw-semibold mb-1" style="font-family:var(--font-display);">Sign in</h1>
-        <p class="text-muted small mb-0">MedTech Mitra Secretariat</p>
+        <img src="{% static 'images/main_logo.svg' %}"
+             alt="ICMR - Indian Council of Medical Research logo"
+             class="login-logo mb-3">
+
+        <h1 class="h4 fw-semibold mb-1 login-title">Sign in</h1>
+        <p class="text-muted small mb-0">MedTech Mitra Secretariat dashboard</p>
       </div>
 
+      <!-- ===================== Error message ===================== -->
       {% if form.errors %}
-        <div class="alert alert-danger py-2 small" role="alert">
-          Incorrect username or password.
+        <div class="alert alert-danger py-2 small d-flex align-items-center gap-2" role="alert">
+          <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+          Incorrect username or password. Please try again.
         </div>
       {% endif %}
 
+      <!-- ===================== Form ===================== -->
       <form method="post" novalidate>
         {% csrf_token %}
 
+        <!-- Sends the user back to the page they wanted after sign in -->
+        <input type="hidden" name="next" value="{{ next }}">
+
         <div class="mb-3">
-          <label for="id_username" class="form-label small text-uppercase text-muted">Username</label>
-          <input type="text"
-                 name="username"
-                 id="id_username"
-                 class="form-control"
-                 autofocus
-                 required>
+          <label for="id_username" class="form-label login-label">Username</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
+            <input type="text"
+                   name="username"
+                   id="id_username"
+                   class="form-control"
+                   value="{{ form.username.value|default:'' }}"
+                   autocomplete="username"
+                   autofocus
+                   required>
+          </div>
         </div>
 
         <div class="mb-4">
-          <label for="id_password" class="form-label small text-uppercase text-muted">Password</label>
-          <input type="password"
-                 name="password"
-                 id="id_password"
-                 class="form-control"
-                 required>
+          <label for="id_password" class="form-label login-label">Password</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
+            <input type="password"
+                   name="password"
+                   id="id_password"
+                   class="form-control"
+                   autocomplete="current-password"
+                   required>
+          </div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        <button type="submit" class="btn btn-icmr w-100">Sign in</button>
 
       </form>
 

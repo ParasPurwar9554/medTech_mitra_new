@@ -175,3 +175,14 @@ LOGGING = {
     },
 }
 (BASE_DIR / "logs").mkdir(exist_ok=True)
+
+CKEDITOR_CONFIGS = {
+    "default": {
+        "toolbar": "full",
+    },
+    "large": {
+        "toolbar": "full",
+        "height": 400,
+        "width": 900,     # 👈 number in pixels, not "100%"
+    },
+}

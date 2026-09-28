@@ -23,9 +23,17 @@ from .models import (
 # ---------------------------------------------------------------------------
 # Inlines — must be defined BEFORE any Admin class that references them
 # ---------------------------------------------------------------------------
+class TACMeetingAdminForm(forms.ModelForm):
+    class Meta:
+        model = TACMeeting
+        fields = "__all__"
+        widgets = {
+            "final_tac_response": CKEditorWidget(config_name="large"),
+        }
 
 class TACMeetingInline(admin.TabularInline):
     model = TACMeeting
+    form = TACMeetingAdminForm
     extra = 0
 
 
