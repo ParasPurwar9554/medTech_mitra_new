@@ -3,7 +3,6 @@
 
 {% block content %}
 
-<!-- ===================== Page heading ===================== -->
 <div class="mb-4">
   <h1 class="h3 fw-semibold mb-2 section-heading">
       Innovator Application Dashboard
@@ -176,10 +175,8 @@
 
       <tbody>
         {% for app in applications %}
-          <tr style="cursor:pointer;"
-              onclick="window.location='{% url 'dashboard:application_detail' app.pk %}'">
-
-            <!-- S.N. -->
+          <tr class="app-row" style="cursor:pointer;"
+              data-href="{% url 'dashboard:application_detail' app.pk %}">
             <td>{{ forloop.counter }}</td>
 
             <!-- Reference / Received -->
@@ -237,7 +234,7 @@
                      aria-valuenow="{{ app.current_trl.level }}" aria-valuemin="0" aria-valuemax="9"
                      title="TRL {{ app.current_trl.level }} of 9">
                   <div class="progress-bar bg-success"
-                       style="width: {% widthratio app.current_trl.level 9 100 %}%;"></div>
+                       data-width="{% widthratio app.current_trl.level 9 100 %}"></div>
                 </div>
 
                 <div class="small text-muted">
@@ -250,14 +247,16 @@
             </td>
 
             {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner %}
-              <td onclick="event.stopPropagation();">
+              <td class="action-cell">
                 <div class="d-grid gap-2">
 
                   {% if request.user.is_superuser or request.user.is_admin_role %}
                     <button type="button"
-                            class="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-1"
-                            onclick="openAssignModal({{ app.id }}, {{ app.initial_trl_id|default:'null' }}, {{ app.current_trl_id|default:'null' }}, '{{ app.medtech_type }}')">
-                      <!-- user + icon -->
+                            class="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-1 js-assign-btn"
+                            data-app-id="{{ app.id }}"
+                            data-initial-trl="{{ app.initial_trl_id|default:'' }}"
+                            data-current-trl="{{ app.current_trl_id|default:'' }}"
+                            data-medtech-type="{{ app.medtech_type }}">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
@@ -268,10 +267,9 @@
                       Assign Partner
                     </button>
                   {% endif %}
-
                   <button type="button"
-                          class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-1"
-                          onclick="openMilestoneModal({{ app.id }})">
+                          class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-1 js-milestone-btn"
+                          data-app-id="{{ app.id }}">
                     <!-- checklist icon -->
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -444,10 +442,30 @@ function setMsg($el, colorClass, text) {
        .text(text);
 }
 
+$('.progress-bar[data-width]').each(function () {
+    $(this).css('width', $(this).data('width') + '%');
+});
 
-/* =========================================================================
-   Assign Partner modal
-   ========================================================================= */
+$(document).on('click', 'tr.app-row', function (e) {
+    if ($(e.target).closest('.action-cell').length) return;
+    window.location = $(this).data('href');
+});
+
+$(document).on('click', '.js-assign-btn', function () {
+    const $b = $(this);
+    openAssignModal(
+        $b.data('app-id'),
+        $b.data('initial-trl') || null,
+        $b.data('current-trl') || null,
+        $b.data('medtech-type')
+    );
+});
+
+// "Manage Milestones" button
+$(document).on('click', '.js-milestone-btn', function () {
+    openMilestoneModal($(this).data('app-id'));
+});
+
 
 function openAssignModal(applicationId, initialTrlId, currentTrlId, categoryType) {
     currentApplicationId = applicationId;
@@ -456,7 +474,7 @@ function openAssignModal(applicationId, initialTrlId, currentTrlId, categoryType
     $('#assign-modal-error').text('');
     $('#assign-save-btn').prop('disabled', false);
 
-    // Filter TRLs: match this category OR blank (applies to all)
+
     const filteredTrls = allTrlData.filter(
         trl => trl.medtech_type === categoryType || trl.medtech_type === ''
     );
@@ -688,12 +706,7 @@ function submitAssignment() {
 }
 
 
-/* =========================================================================
-   Milestones modal
-   ========================================================================= */
-
-let stageAdvanced = false;   // true if a TRL stage got completed while the popup was open
-
+let stageAdvanced = false;
 
 function openMilestoneModal(applicationId) {
     stageAdvanced = false;
@@ -776,7 +789,6 @@ function openMilestoneModal(applicationId) {
 
                     statusCell += `</select>`;
 
-                    // Remarks box
                     remarksCell = `<textarea class="form-control form-control-sm ms-remarks-input"
                                              rows="2"
                                              data-milestone-id="${m.id}"
@@ -828,18 +840,16 @@ function openMilestoneModal(applicationId) {
 }
 
 
-// Runs every time the popup finishes closing
 document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', function () {
     $('#milestone-modal-body').empty();
 
     if (stageAdvanced) {
         stageAdvanced = false;
-        location.reload();   // the TRL tracker changed, so refresh the page
+        location.reload(); 
     }
 });
 
 
-// Save one partner's milestones + remarks together
 $(document).on('click', '.ms-save-btn', function () {
     const $btn = $(this);
     const $block = $btn.closest('[data-assignment-id]');
@@ -857,8 +867,6 @@ $(document).on('click', '.ms-save-btn', function () {
         });
     });
 
-    const remarks = $block.find('.assign-remarks-input').val();
-
     $btn.prop('disabled', true);
     setMsg($msg, 'text-muted', 'Saving...');
 
@@ -870,12 +878,10 @@ $(document).on('click', '.ms-save-btn', function () {
         headers: { 'X-CSRFToken': csrftoken },
         data: JSON.stringify({
             assignment_id: assignmentId,
-            remarks: remarks,
             milestones: milestones
         })
     })
     .done(function (data) {
-        // Update the "Completion Date" cells with fresh values from the server
         data.milestones.forEach(function (m) {
             $block.find(`.ms-status-select[data-milestone-id="${m.id}"]`)
                   .closest('tr')
@@ -883,7 +889,6 @@ $(document).on('click', '.ms-save-btn', function () {
                   .text(m.date_achieved);
         });
 
-        // If history is open, reload it so the new changes show
         const $history = $block.find('.ms-history-body');
         if (!$history.hasClass('d-none')) {
             const $toggle = $block.find('.ms-history-toggle');
@@ -909,7 +914,6 @@ $(document).on('click', '.ms-save-btn', function () {
 });
 
 
-// Show / hide change history for one partner
 $(document).on('click', '.ms-history-toggle', function (e) {
     e.preventDefault();
 
