@@ -283,7 +283,7 @@ class ApplicationTRLStage(TimeStampedModel):
 class KnowledgePartnerAssignment(TimeStampedModel):
     class SupportStatus(models.TextChoices):
         #REQUESTED = "requested", "Support Requested"
-        CONNECTED = "connected", "Partner Connected"
+        CONNECTED = "connected", "Connected"
         #IN_PROGRESS = "in_progress", "Support In Progress"
         COMPLETED = "completed", "Support Completed"
 

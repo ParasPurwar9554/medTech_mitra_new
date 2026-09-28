@@ -177,7 +177,7 @@
         {% for app in applications %}
           <tr class="app-row" style="cursor:pointer;"
               data-href="{% url 'dashboard:application_detail' app.pk %}">
-            <td>{{ forloop.counter }}</td>
+            <td>{{ applications.start_index|add:forloop.counter0 }}</td>
 
             <!-- Reference / Received -->
             <td class="text-break">
