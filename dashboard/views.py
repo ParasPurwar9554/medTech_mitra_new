@@ -1,13 +1,13 @@
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse,FileResponse,Http404
 import json
 from django.core.serializers.json import DjangoJSONEncoder
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.core.paginator import Paginator
 
-from core.models import Application, KnowledgePartner,KnowledgePartnerAssignment,Milestone,TRLDefinition,ApplicationTRLStage,AssignmentChangeLog
+from core.models import Application, KnowledgePartner,KnowledgePartnerAssignment,Milestone,TRLDefinition,ApplicationTRLStage,AssignmentChangeLog,TRLStageAttachment
 from . import services
 
 from django.http import JsonResponse
@@ -15,6 +15,9 @@ from django.views.decorators.http import require_GET
 from django.db.models import Count,F,Prefetch
 from core.models import PartnerMilestoneTemplate
 from core.models import TRLProgressLog
+from django.core.exceptions import ValidationError
+
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
 
 
 @login_required
@@ -402,7 +405,6 @@ def assign_trl_partner_ajax(request):
 def application_milestones_ajax(request):
     user = request.user
     is_admin = user.is_superuser or user.is_admin_role
-
     partner = getattr(user, "partner_profile", None) if user.is_support_partner else None
 
     if not (is_admin or partner):
@@ -437,7 +439,7 @@ def application_milestones_ajax(request):
             "partner_name": a.partner.name,
             "short_code": a.partner.short_code,
             "assignment_status": a.get_status_display(),
-            "advisory_remarks": a.advisory_remarks,          # NEW
+            "advisory_remarks": a.advisory_remarks,          
             "milestones": [
                 {
                     "id": m.id,
@@ -623,3 +625,138 @@ def assignment_history_ajax(request):
             for log in logs
         ]
     })
+
+def get_attachment_role(user, application):
+    """Return 'admin', 'partner', 'innovator' or None (no access)."""
+    if user.is_superuser or getattr(user, "is_admin_role", False):
+        return "admin"
+
+    partner = getattr(user, "partner_profile", None)
+    if partner and KnowledgePartnerAssignment.objects.filter(
+        trl_stage__application=application, partner=partner
+    ).exists():
+        return "partner"
+
+    # CHANGED: use the existing User.applicant field
+    user_applicant_id = getattr(user, "applicant_id", None)
+    if user_applicant_id and user_applicant_id == application.applicant_id:
+        return "innovator"
+
+    return None
+
+
+def stages_for_user(user, application, role):
+    """TRL stages this user can see files for."""
+    stages = application.trl_stages.select_related("trl")
+    if role == "partner":
+        stages = stages.filter(partner_assignments__partner=user.partner_profile).distinct()
+    return stages
+
+
+def role_for_stage(user, stage):
+    """Role for one stage, or None if the user can't access it."""
+    role = get_attachment_role(user, stage.application)
+    if role == "partner" and not stage.partner_assignments.filter(
+        partner=user.partner_profile
+    ).exists():
+        return None
+    return role
+
+@login_required
+@require_GET
+def trl_attachments(request):
+    application = get_object_or_404(
+        Application.objects.select_related("applicant"),
+        pk=request.GET.get("application_id"),
+    )
+    role = get_attachment_role(request.user, application)
+    if role is None:
+        return JsonResponse({"error": "You do not have access to this application."}, status=403)
+
+    stages = stages_for_user(request.user, application, role).prefetch_related(
+        "attachments__created_by"
+    )
+
+    stages_data = []
+    for stage in stages:
+        files = []
+        for att in stage.attachments.all():
+            uploader = att.created_by
+            files.append({
+                "id": att.id,
+                "name": att.original_name,
+                "note": att.note,
+                "uploaded_by": (uploader.get_full_name() or uploader.username) if uploader else "—",
+                "uploader_role": att.uploader_role,
+                "uploader_role_display": att.get_uploader_role_display(),
+                "uploaded_at": timezone.localtime(att.created_at).strftime("%d %b %Y, %H:%M"),
+                "download_url": f"/ajax/trl-attachments/download/{att.id}/",
+                "can_delete": role == "admin" or att.created_by_id == request.user.id,
+            })
+
+        stages_data.append({
+            "stage_id": stage.id,
+            "trl_name": stage.trl.name,
+            "files": files,
+        })
+
+    return JsonResponse({"role": role, "stages": stages_data})
+
+@login_required
+@require_POST
+def upload_trl_attachment(request):
+    stage = get_object_or_404(
+        ApplicationTRLStage.objects.select_related("application__applicant", "trl"),
+        pk=request.POST.get("trl_stage_id"),
+    )
+    role = role_for_stage(request.user, stage)
+    if role is None:
+        return JsonResponse({"error": "You cannot upload files to this TRL stage."}, status=403)
+
+    uploaded = request.FILES.get("file")
+    if not uploaded:
+        return JsonResponse({"error": "Please choose a file."}, status=400)
+    if uploaded.size > MAX_ATTACHMENT_SIZE:
+        return JsonResponse({"error": "File is too big. Maximum size is 10 MB."}, status=400)
+
+    attachment = TRLStageAttachment(
+        trl_stage=stage,
+        file=uploaded,
+        original_name=uploaded.name[:255],
+        note=request.POST.get("note", "")[:255],
+        uploader_role=role,
+        created_by=request.user,
+    )
+    try:
+        attachment.full_clean()   # checks the file type
+    except ValidationError as e:
+        return JsonResponse({"error": " ".join(e.messages)}, status=400)
+
+    attachment.save()
+    return JsonResponse({"ok": True})
+
+@login_required
+def download_trl_attachment(request, pk):
+    att = get_object_or_404(
+        TRLStageAttachment.objects.select_related("trl_stage__application__applicant"),
+        pk=pk,
+    )
+    if role_for_stage(request.user, att.trl_stage) is None:
+        raise Http404
+    return FileResponse(att.file.open("rb"), as_attachment=True, filename=att.original_name)
+
+
+@login_required
+@require_POST
+def delete_trl_attachment(request):
+    att = get_object_or_404(
+        TRLStageAttachment.objects.select_related("trl_stage__application__applicant"),
+        pk=request.POST.get("attachment_id"),
+    )
+    role = role_for_stage(request.user, att.trl_stage)
+    if role is None or (role != "admin" and att.created_by_id != request.user.id):
+        return JsonResponse({"error": "You can only delete your own files."}, status=403)
+
+    att.file.delete(save=False)   # remove the file from disk
+    att.delete()
+    return JsonResponse({"ok": True})

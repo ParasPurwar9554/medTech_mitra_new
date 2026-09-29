@@ -15,5 +15,9 @@ urlpatterns = [
     path("ajax/application-milestones/", views.application_milestones_ajax, name="application_milestones_ajax"),
     path("ajax/update-assignment-milestones/", views.update_assignment_milestones, name="update_assignment_milestones"),
     path("ajax/assignment-history/", views.assignment_history_ajax, name="assignment_history_ajax"),
+    path("ajax/trl-attachments/", views.trl_attachments, name="trl_attachments"),
+    path("ajax/trl-attachments/upload/", views.upload_trl_attachment, name="upload_trl_attachment"),
+    path("ajax/trl-attachments/delete/", views.delete_trl_attachment, name="delete_trl_attachment"),
+    path("ajax/trl-attachments/download/<int:pk>/", views.download_trl_attachment, name="download_trl_attachment"),
 
 ]

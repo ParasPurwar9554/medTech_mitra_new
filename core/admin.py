@@ -66,9 +66,14 @@ class ApplicationTRLStageInline(admin.TabularInline):
 
 @admin.register(Applicant)
 class ApplicantAdmin(admin.ModelAdmin):
-    list_display = ("name", "affiliation_name", "affiliation_type", "email", "contact_number")
-    search_fields = ("name", "innovator_name", "affiliation_name", "email")
+    list_display = ("name", "affiliation_name", "affiliation_type", "email", "contact_number", "linked_login")
+    search_fields = ("name", "innovator_name", "affiliation_name", "email", "user__username", "user__email")
     list_filter = ("affiliation_type",)
+
+    @admin.display(description="Login")
+    def linked_login(self, obj):
+        user = obj.user_set.first() if hasattr(obj, "user_set") else getattr(obj, "user", None)
+        return user.username if user else "—"
 
 class ApplicationAdminForm(forms.ModelForm):
     query_text = forms.CharField(widget=CKEditorWidget(), required=False)

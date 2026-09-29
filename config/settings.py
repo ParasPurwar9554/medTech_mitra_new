@@ -183,6 +183,6 @@ CKEDITOR_CONFIGS = {
     "large": {
         "toolbar": "full",
         "height": 400,
-        "width": 900,     # 👈 number in pixels, not "100%"
+        "width": 900,
     },
 }

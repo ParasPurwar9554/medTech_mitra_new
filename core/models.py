@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator,FileExtensionValidator
 
 
 class TimeStampedModel(models.Model):
@@ -345,6 +345,44 @@ class Milestone(TimeStampedModel):
 
     class Meta:
         ordering = ["assignment", "id"]
+
+
+
+ALLOWED_ATTACHMENT_EXTENSIONS = [
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "jpg", "jpeg", "png", "zip",
+]
+
+def trl_attachment_path(instance, filename):
+    stage = instance.trl_stage
+    return f"trl_attachments/app_{stage.application_id}/trl_{stage.trl.level}/{filename}"
+
+
+class TRLStageAttachment(TimeStampedModel):
+    """A file uploaded for one TRL stage of an application.
+    Uploader = created_by (from TimeStampedModel)."""
+
+    class UploaderRole(models.TextChoices):
+        ADMIN = "admin", "Admin"
+        PARTNER = "partner", "Knowledge Partner"
+        INNOVATOR = "innovator", "Innovator"
+
+    trl_stage = models.ForeignKey(
+        ApplicationTRLStage, on_delete=models.CASCADE, related_name="attachments"
+    )
+    file = models.FileField(
+        upload_to=trl_attachment_path, max_length=255,
+        validators=[FileExtensionValidator(ALLOWED_ATTACHMENT_EXTENSIONS)],
+    )
+    original_name = models.CharField(max_length=255)
+    note = models.CharField(max_length=255, blank=True)
+    uploader_role = models.CharField(max_length=10, choices=UploaderRole.choices)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.trl_stage} - {self.original_name}"        
 
 
 class AssignmentChangeLog(TimeStampedModel):
