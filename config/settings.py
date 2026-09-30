@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     "accounts",
     "core",
     "dashboard",
-    "ckeditor"
+    "django_ckeditor_5"
 ]
 
 MIDDLEWARE = [
@@ -176,13 +176,31 @@ LOGGING = {
 }
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
-CKEDITOR_CONFIGS = {
+CKEDITOR_5_CONFIGS = {
     "default": {
-        "toolbar": "full",
+        "toolbar": [
+            "heading", "|",
+            "bold", "italic", "link", "|",
+            "bulletedList", "numberedList", "|",
+            "undo", "redo",
+        ],
     },
     "large": {
-        "toolbar": "full",
-        "height": 400,
-        "width": 900,
+        "toolbar": [
+            "heading", "|",
+            "bold", "italic", "underline", "strikethrough", "link", "|",
+            "bulletedList", "numberedList", "outdent", "indent", "|",
+            "blockQuote", "insertTable", "imageUpload", "|",
+            "removeFormat", "undo", "redo",
+        ],
+        "table": {
+            "contentToolbar": ["tableColumn", "tableRow", "mergeTableCells"],
+        },
+        "image": {
+            "toolbar": ["imageTextAlternative", "|", "imageStyle:alignLeft",
+                        "imageStyle:alignCenter", "imageStyle:alignRight"],
+        },
     },
 }
+
+CKEDITOR_5_FILE_UPLOAD_PERMISSION = "staff"

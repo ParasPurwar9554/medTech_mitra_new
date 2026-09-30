@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import F
 from django import forms
-from ckeditor.widgets import CKEditorWidget
+from django_ckeditor_5.widgets import CKEditor5Widget
 admin.site.site_header = "MedTech Mitra Secretariat"
 admin.site.site_title = "MedTech Mitra Secretariat"
 admin.site.index_title = "Welcome to the Dashboard"
@@ -28,7 +28,7 @@ class TACMeetingAdminForm(forms.ModelForm):
         model = TACMeeting
         fields = "__all__"
         widgets = {
-            "final_tac_response": CKEditorWidget(config_name="large"),
+            "final_tac_response": CKEditor5Widget(config_name="large"),
         }
 
 class TACMeetingInline(admin.TabularInline):
@@ -76,7 +76,13 @@ class ApplicantAdmin(admin.ModelAdmin):
         return user.username if user else "—"
 
 class ApplicationAdminForm(forms.ModelForm):
-    query_text = forms.CharField(widget=CKEditorWidget(), required=False)
+    query_text = forms.CharField(
+    widget=CKEditor5Widget(
+        attrs={"class": "django_ckeditor_5"},
+        config_name="default",
+    ),
+    required=False,
+)
 
     class Meta:
         model = Application
