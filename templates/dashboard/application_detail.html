@@ -4,6 +4,10 @@
 
 {% block content %}
 
+<style>
+  .trl-clickable { cursor: pointer; }
+</style>
+
 <!-- ===================== Page heading ===================== -->
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
   <div>
@@ -16,16 +20,14 @@
     </p>
   </div>
 
-  <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">
+  <a href="{% url 'dashboard:overview' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+     class="btn btn-outline-secondary">
     &larr; Back to dashboard
   </a>
 </div>
 
 <div class="row g-3">
 
-  <!-- =====================================================================
-       LEFT COLUMN
-       ===================================================================== -->
   <div class="col-lg-8">
 
     <!-- ---------- TRL Progress ---------- -->
@@ -33,8 +35,6 @@
       <div class="card-header bg-white fw-semibold">TRL Progress</div>
 
       <div class="card-body">
-
-        <!-- Stepper (built with Bootstrap utility classes) -->
         <div class="d-flex align-items-start overflow-x-auto pt-2 pb-3">
           {% for trl in trl_tracker %}
 
@@ -45,12 +45,12 @@
                           {% if trl.status == 'completed' %}text-bg-success
                           {% elif trl.status == 'current' %}text-bg-warning border border-3 border-warning-subtle
                           {% elif trl.status == 'disabled' %}bg-secondary-subtle text-secondary pe-none
-                          {% else %}bg-light text-secondary border{% endif %}"
-                   style="width:36px; height:36px; font-size:.875rem;{% if trl.status != 'disabled' %} cursor:pointer;{% endif %}"
+                          {% else %}bg-light text-secondary border{% endif %}
+                          {% if trl.status != 'disabled' %}trl-clickable{% endif %}"
+                   style="width:36px; height:36px; font-size:.875rem;"
                    data-trl-id="{{ trl.id }}"
+                   data-app-id="{{ application.id }}"
                    {% if trl.status != 'disabled' %}
-                     onclick="loadTrlDetail({{ trl.id }}, {{ application.id }})"
-                     onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); loadTrlDetail({{ trl.id }}, {{ application.id }}); }"
                      tabindex="0"
                      role="button"
                    {% else %}
@@ -85,187 +85,111 @@
       </div>
     </div>
 
-<!-- ---------- Application Details ---------- -->
-<div class="card mb-3">
-  <div class="card-header bg-white fw-semibold">
-    Application Details
-  </div>
+    <!-- ---------- Application Details ---------- -->
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-semibold">
+        Application Details
+      </div>
 
-  <div class="card-body">
+      <div class="card-body">
 
-    <!-- =========================================================
-         1. APPLICATION INFORMATION
-    ========================================================== -->
-    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
-      Application Information
-    </h6>
+        <!-- 1. APPLICATION INFORMATION -->
+        <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+          Application Information
+        </h6>
 
-    <dl class="row mb-4">
+        <dl class="row mb-4">
+          <dt class="col-sm-4">Reference No.</dt>
+          <dd class="col-sm-8">{{ application.reference_no|default:"—" }}</dd>
 
-      <!-- Reference -->
-      <dt class="col-sm-4">Reference No.</dt>
-      <dd class="col-sm-8">
-        {{ application.reference_no|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Applicant</dt>
+          <dd class="col-sm-8">{{ application.applicant|default:"—" }}</dd>
 
-      <!-- Applicant -->
-      <dt class="col-sm-4">Applicant</dt>
-      <dd class="col-sm-8">
-        {{ application.applicant|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">MedTech Type</dt>
+          <dd class="col-sm-8">{{ application.get_medtech_type_display|default:"—" }}</dd>
 
-      <!-- MedTech Type -->
-      <dt class="col-sm-4">MedTech Type</dt>
-      <dd class="col-sm-8">
-        {{ application.get_medtech_type_display|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Technology Name</dt>
+          <dd class="col-sm-8">{{ application.technology_name|default:"—" }}</dd>
 
-      <!-- Technology -->
-      <dt class="col-sm-4">Technology Name</dt>
-      <dd class="col-sm-8">
-        {{ application.technology_name|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Date Received</dt>
+          <dd class="col-sm-8">{{ application.date_received|date:"d M Y"|default:"—" }}</dd>
+        </dl>
 
-      <!-- Date Received -->
-      <dt class="col-sm-4">Date Received</dt>
-      <dd class="col-sm-8">
-        {{ application.date_received|date:"d M Y"|default:"—" }}
-      </dd>
+        <!-- 2. TECHNOLOGY & REGULATORY INFORMATION -->
+        <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+          Technology &amp; Regulatory Information
+        </h6>
 
-    </dl>
+        <dl class="row mb-4">
+          <dt class="col-sm-4">Risk Classification</dt>
+          <dd class="col-sm-8">{{ application.get_risk_classification_display|default:"—" }}</dd>
 
+          <dt class="col-sm-4">Device Category</dt>
+          <dd class="col-sm-8">{{ application.get_device_category_display|default:"—" }}</dd>
 
-    <!-- =========================================================
-         2. TECHNOLOGY & REGULATORY INFORMATION
-    ========================================================== -->
-    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
-      Technology &amp; Regulatory Information
-    </h6>
+          <dt class="col-sm-4">Innovation Stage</dt>
+          <dd class="col-sm-8">{{ application.get_innovation_stage_display|default:"—" }}</dd>
 
-    <dl class="row mb-4">
+          <dt class="col-sm-4">Test License Received</dt>
+          <dd class="col-sm-8">
+            {% if application.test_license_received == True %}
+              Yes
+            {% elif application.test_license_received == False %}
+              No
+            {% else %}
+              —
+            {% endif %}
+          </dd>
 
-      <!-- Risk -->
-      <dt class="col-sm-4">Risk Classification</dt>
-      <dd class="col-sm-8">
-        {{ application.get_risk_classification_display|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Intended Use</dt>
+          <dd class="col-sm-8">{{ application.intended_use_statement|default:"—" }}</dd>
 
-      <!-- Device Category -->
-      <dt class="col-sm-4">Device Category</dt>
-      <dd class="col-sm-8">
-        {{ application.get_device_category_display|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Use Environment</dt>
+          <dd class="col-sm-8">{{ application.use_environment|default:"—" }}</dd>
 
-      <!-- Innovation Stage -->
-      <dt class="col-sm-4">Innovation Stage</dt>
-      <dd class="col-sm-8">
-        {{ application.get_innovation_stage_display|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Target Population</dt>
+          <dd class="col-sm-8">{{ application.target_population|default:"—" }}</dd>
 
-      <!-- Test License -->
-      <dt class="col-sm-4">Test License Received</dt>
-      <dd class="col-sm-8">
-        {% if application.test_license_received == True %}
-          Yes
-        {% elif application.test_license_received == False %}
-          No
-        {% else %}
-          —
-        {% endif %}
-      </dd>
+          <dt class="col-sm-4">Area of Application</dt>
+          <dd class="col-sm-8">{{ application.area_of_application|default:"—" }}</dd>
+        </dl>
 
-      <!-- Intended Use -->
-      <dt class="col-sm-4">Intended Use</dt>
-      <dd class="col-sm-8">
-        {{ application.intended_use_statement|default:"—" }}
-      </dd>
+        <!-- 3. SUPPORT & REQUIREMENTS -->
+        <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+          Support &amp; Requirements
+        </h6>
 
-      <!-- Use Environment -->
-      <dt class="col-sm-4">Use Environment</dt>
-      <dd class="col-sm-8">
-        {{ application.use_environment|default:"—" }}
-      </dd>
+        <dl class="row mb-4">
+          <dt class="col-sm-4">Support Category</dt>
+          <dd class="col-sm-8">{{ application.get_support_category_display|default:"—" }}</dd>
 
-      <!-- Target Population -->
-      <dt class="col-sm-4">Target Population</dt>
-      <dd class="col-sm-8">
-        {{ application.target_population|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Support Requested</dt>
+          <dd class="col-sm-8">{{ application.support_type_requested|default:"—" }}</dd>
 
-      <!-- Area -->
-      <dt class="col-sm-4">Area of Application</dt>
-      <dd class="col-sm-8">
-        {{ application.area_of_application|default:"—" }}
-      </dd>
+          <dt class="col-sm-4">Summary</dt>
+          <dd class="col-sm-8">{{ application.query_text|default:"—"|safe }}</dd>
+        </dl>
 
-    </dl>
+        <!-- 4. STATUS & CLOSURE INFORMATION -->
+        <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
+          Status &amp; Closure Information
+        </h6>
 
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Status</dt>
+          <dd class="col-sm-8">
+            <span class="badge text-bg-secondary">{{ application.get_status_display }}</span>
+          </dd>
 
-    <!-- =========================================================
-         3. SUPPORT & REQUIREMENTS
-    ========================================================== -->
-    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
-      Support &amp; Requirements
-    </h6>
+          <dt class="col-sm-4">Reason for Closure</dt>
+          <dd class="col-sm-8">{{ application.final_status_notes|default:"—" }}</dd>
 
-    <dl class="row mb-4">
+          <dt class="col-sm-4">Closure Date</dt>
+          <dd class="col-sm-8">{{ application.closure_date|date:"d M Y"|default:"—" }}</dd>
+        </dl>
 
-      <!-- Support Category -->
-      <dt class="col-sm-4">Support Category</dt>
-      <dd class="col-sm-8">
-        {{ application.get_support_category_display|default:"—" }}
-      </dd>
-
-      <!-- Support Requested -->
-      <dt class="col-sm-4">Support Requested</dt>
-      <dd class="col-sm-8">
-        {{ application.support_type_requested|default:"—" }}
-      </dd>
-
-      <!-- Summary -->
-      <dt class="col-sm-4">Summary</dt>
-      <dd class="col-sm-8">
-        {{ application.query_text|default:"—"|safe }}
-      </dd>
-
-    </dl>
-
-
-    <!-- =========================================================
-         4. STATUS & CLOSURE INFORMATION
-    ========================================================== -->
-    <h6 class="fw-semibold text-primary border-bottom pb-2 mb-3">
-      Status &amp; Closure Information
-    </h6>
-
-    <dl class="row mb-0">
-
-      <!-- Status -->
-      <dt class="col-sm-4">Status</dt>
-      <dd class="col-sm-8">
-        <span class="badge text-bg-secondary">
-          {{ application.get_status_display }}
-        </span>
-      </dd>
-
-      <!-- Closure Reason -->
-      <dt class="col-sm-4">Reason for Closure</dt>
-      <dd class="col-sm-8">
-        {{ application.final_status_notes|default:"—" }}
-      </dd>
-
-      <!-- Closure Date -->
-      <dt class="col-sm-4">Closure Date</dt>
-      <dd class="col-sm-8">
-        {{ application.closure_date|date:"d M Y"|default:"—" }}
-      </dd>
-
-    </dl>
-
-  </div>
-</div>
-
-
+      </div>
+    </div>
 
     <!-- ---------- TAC meetings ---------- -->
     <div class="card mb-3">
@@ -276,7 +200,7 @@
           <li class="list-group-item">
             <strong>{{ m.meeting_date|date:"d M Y"|default:"Date TBD" }}</strong>
             &mdash; {{ m.meeting_ref_no|default:"" }}<br>
-           <div class="text-muted">
+            <div class="text-muted">
               {{ m.final_tac_response|default:m.first_meeting_outcome|default:"No outcome recorded yet."|safe }}
             </div>
           </li>
@@ -398,19 +322,6 @@
       </ul>
     </div>
 
-    <!-- ---------- TRL progression ---------- -->
-    <!-- <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">TRL progression</div>
-
-      <ul class="list-group list-group-flush">
-        {% for log in application.trl_history.all %}
-          <li class="list-group-item"><strong>{{ log.trl.name }}</strong></li>
-        {% empty %}
-          <li class="list-group-item text-muted">No TRL history recorded.</li>
-        {% endfor %}
-      </ul>
-    </div> -->
-
   </div>
 </div>
 
@@ -419,107 +330,137 @@
 
 {% block extra_js %}
 <script>
+$(function () {
+    let currentOpenTrlId = null;   // remembers which TRL panel is currently open
 
-let currentOpenTrlId = null;   // remembers which TRL panel is currently open
-
-
-// Stops < > & from breaking the HTML
-function esc(text) {
-    const div = document.createElement('div');
-    div.textContent = text == null ? '' : text;
-    return div.innerHTML;
-}
-
-
-function loadTrlDetail(trlId, applicationId) {
-    const panel = document.getElementById('trl-detail-panel');
-    const content = document.getElementById('trl-detail-content');
-
-    // Same TRL clicked again -> close it
-    if (currentOpenTrlId === trlId) {
-        panel.classList.add('d-none');
-        currentOpenTrlId = null;
-        return;
+    // Stops < > & from breaking the HTML
+    function esc(text) {
+        return $('<div>').text(text == null ? '' : text).html();
     }
 
-    // Different TRL (or first click) -> open/switch to it
-    currentOpenTrlId = trlId;
-    panel.classList.remove('d-none');
-    content.innerHTML = '<span class="text-muted">Loading...</span>';
+    function loadTrlDetail(trlId, applicationId) {
+        const $panel = $('#trl-detail-panel');
+        const $content = $('#trl-detail-content');
 
-    fetch(`/ajax/trl-detail/?trl_id=${trlId}&application_id=${applicationId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                content.innerHTML = `<p class="text-danger mb-0">${esc(data.error)}</p>`;
+        // Same TRL clicked again -> close it
+        if (currentOpenTrlId === trlId) {
+            $panel.addClass('d-none');
+            currentOpenTrlId = null;
+            return;
+        }
+
+        // Different TRL (or first click) -> open/switch to it
+        currentOpenTrlId = trlId;
+        $panel.removeClass('d-none');
+        $content.html('<span class="text-muted">Loading...</span>');
+
+        $.ajax({
+            url: '/ajax/trl-detail/',
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                trl_id: trlId,
+                application_id: applicationId
+            }
+        })
+        .done(function (data) {
+            // User clicked another TRL while this one was loading -> ignore old result
+            if (currentOpenTrlId !== trlId) {
                 return;
             }
 
-            let html = `<h5 class="fw-semibold mb-3">${esc(data.trl_name)}</h5>`;
+            if (data.error) {
+                $content.html('<p class="text-danger mb-0">' + esc(data.error) + '</p>');
+                return;
+            }
+
+            let html = '<h5 class="fw-semibold mb-3">' + esc(data.trl_name) + '</h5>';
 
             // Group 1: partners that match this TRL
-            data.partners.forEach(p => {
+            $.each(data.partners, function (i, p) {
                 html += buildPartnerBlock(p);
             });
 
             // Group 2: assigned partners that do not match this TRL
-            const otherPartners = data.assigned_partners.filter(
-                p => !data.partners.some(mp => mp.partner_id === p.partner_id)
-            );
+            const otherPartners = $.grep(data.assigned_partners, function (p) {
+                return !data.partners.some(function (mp) {
+                    return mp.partner_id === p.partner_id;
+                });
+            });
 
-            otherPartners.forEach(p => {
+            $.each(otherPartners, function (i, p) {
                 html += buildPartnerBlock(p);
             });
 
-            content.innerHTML = html;
+            $content.html(html);
         })
-        .catch(err => {
-            content.innerHTML = '<p class="text-danger mb-0">Failed to load details.</p>';
-            console.error(err);
-        });
-}
-
-
-function buildPartnerBlock(partner) {
-    const status = (partner.assignment_status || '').toLowerCase();
-    const isPositive = status.includes('complete') || status.includes('partner connected');
-    const badgeClass = isPositive ? 'text-bg-success' : 'text-bg-warning';
-
-    let block = `
-        <div class="border rounded p-3 mb-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-semibold">${esc(partner.partner_name)}</span>
-                <span class="badge ${badgeClass}">${esc(partner.assignment_status)}</span>
-            </div>
-            <ul class="list-group list-group-flush">
-    `;
-
-    if (partner.milestones.length === 0) {
-        block += `<li class="list-group-item px-0 small text-muted fst-italic">No milestones recorded.</li>`;
-    } else {
-        partner.milestones.forEach(m => {
-            const isClosed = m.status === 'Completed';
-
-            const statusHtml = isClosed
-                ? `<span class="font-monospace small text-success text-nowrap">
-                       &#9679; Completed &middot; ${esc(m.date_achieved || '')}
-                   </span>`
-                : `<span class="font-monospace small text-warning-emphasis text-capitalize text-nowrap">
-                       &#9679; ${esc(m.status)}
-                   </span>`;
-
-            block += `
-                <li class="list-group-item px-0 small d-flex justify-content-between align-items-center gap-3">
-                    <span>${esc(m.template_name)}</span>
-                    ${statusHtml}
-                </li>
-            `;
+        .fail(function (xhr, status, error) {
+            $content.html('<p class="text-danger mb-0">Failed to load details.</p>');
+            console.error(status, error);
         });
     }
 
-    block += `</ul></div>`;
-    return block;
-}
 
+    function buildPartnerBlock(partner) {
+        const status = (partner.assignment_status || '').toLowerCase();
+        const isPositive = status.includes('complete') || status.includes('partner connected');
+        const badgeClass = isPositive ? 'text-bg-success' : 'text-bg-warning';
+
+        let block = `
+            <div class="border rounded p-3 mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-semibold">${esc(partner.partner_name)}</span>
+                    <span class="badge ${badgeClass}">${esc(partner.assignment_status)}</span>
+                </div>
+                <ul class="list-group list-group-flush">
+        `;
+
+        if (!partner.milestones || partner.milestones.length === 0) {
+            block += '<li class="list-group-item px-0 small text-muted fst-italic">No milestones recorded.</li>';
+        } else {
+            $.each(partner.milestones, function (i, m) {
+                const isClosed = m.status === 'Completed';
+
+                const statusHtml = isClosed
+                    ? `<span class="font-monospace small text-success text-nowrap">
+                           &#9679; Completed &middot; ${esc(m.date_achieved || '')}
+                       </span>`
+                    : `<span class="font-monospace small text-warning-emphasis text-capitalize text-nowrap">
+                           &#9679; ${esc(m.status)}
+                       </span>`;
+
+                block += `
+                    <li class="list-group-item px-0 small d-flex justify-content-between align-items-center gap-3">
+                        <span>${esc(m.template_name)}</span>
+                        ${statusHtml}
+                    </li>
+                `;
+            });
+        }
+
+        block += '</ul></div>';
+        return block;
+    }
+
+
+    // Click on a TRL circle -> load its details
+    $(document).on('click', '.trl-clickable', function () {
+        const trlId = Number($(this).data('trl-id'));
+        const appId = Number($(this).data('app-id'));
+        loadTrlDetail(trlId, appId);
+    });
+
+
+    // Enter or Space on a TRL circle -> load its details
+    $(document).on('keydown', '.trl-clickable', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const trlId = Number($(this).data('trl-id'));
+            const appId = Number($(this).data('app-id'));
+            loadTrlDetail(trlId, appId);
+        }
+    });
+
+});
 </script>
 {% endblock %}

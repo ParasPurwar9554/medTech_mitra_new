@@ -404,15 +404,23 @@ def assign_trl_partner_ajax(request):
 @require_GET
 def application_milestones_ajax(request):
     user = request.user
+
+    # ---- Step 1: Find the user's role ----
     is_admin = user.is_superuser or user.is_admin_role
+    is_innovator = user.is_innovator and not is_admin
     partner = getattr(user, "partner_profile", None) if user.is_support_partner else None
 
-    if not (is_admin or partner):
+    if not (is_admin or is_innovator or partner):
         return JsonResponse({"error": "You do not have permission."}, status=403)
 
     application = Application.objects.filter(id=request.GET.get("application_id")).first()
     if not application:
         return JsonResponse({"error": "Application not found."}, status=404)
+
+    # ---- Step 2: Innovator can see only their own application ----
+    # Change "applicant_id" if your link between user and application is different.
+    if is_innovator and application.applicant_id != user.applicant_id:
+        return JsonResponse({"error": "You do not have permission."}, status=403)
 
     assignments = (
         KnowledgePartnerAssignment.objects
@@ -428,7 +436,8 @@ def application_milestones_ajax(request):
         .order_by("trl_stage__trl__level", "partner__name")
     )
 
-    if not is_admin:
+    # ---- Step 3: Support partner sees only their own assignments ----
+    if not is_admin and not is_innovator:
         assignments = assignments.filter(partner=partner)
 
     result = []
@@ -439,14 +448,15 @@ def application_milestones_ajax(request):
             "partner_name": a.partner.name,
             "short_code": a.partner.short_code,
             "assignment_status": a.get_status_display(),
-            "advisory_remarks": a.advisory_remarks,          
+            "advisory_remarks": a.advisory_remarks,
+            "can_edit": can_edit_assignment(user, a),
             "milestones": [
                 {
                     "id": m.id,
                     "label": m.label,
                     "description": m.description or (m.template.description if m.template else ""),
                     "status": m.status,
-                    "remarks": m.remarks, 
+                    "remarks": m.remarks,
                     "status_display": m.get_status_display(),
                     "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
                 }
@@ -458,7 +468,7 @@ def application_milestones_ajax(request):
         "reference_no": application.reference_no,
         "technology_name": application.technology_name,
         "is_admin": is_admin,
-        "can_edit": True,
+        "can_edit": is_admin or partner is not None,
         "status_choices": [
             {"value": v, "label": l} for v, l in Milestone.MilestoneStatus.choices
         ],
@@ -469,9 +479,11 @@ def application_milestones_ajax(request):
 def can_edit_assignment(user, assignment):
     if user.is_superuser or user.is_admin_role:
         return True
+
     if user.is_support_partner:
         partner = getattr(user, "partner_profile", None)
         return partner is not None and assignment.partner_id == partner.id
+
     return False
 
 

@@ -114,7 +114,7 @@
           {% endfor %}
         </select>
       </div>
-
+      {% if request.user.is_superuser or request.user.is_admin_role %}
       <div class="col-12 col-md-6 col-lg">
         <label class="form-label small text-uppercase text-muted mb-1" for="partner">Knowledge partner</label>
         <select class="form-select" name="partner" id="partner">
@@ -126,7 +126,7 @@
           {% endfor %}
         </select>
       </div>
-
+      {% endif %}
       <div class="col-12 col-lg-auto d-flex gap-2">
         <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
         <button type="submit" class="btn btn-icmr">Apply filters</button>
@@ -174,8 +174,8 @@
       </thead>
       <tbody>
         {% for app in applications %}
-          <tr class="app-row" style="cursor:pointer;"
-              data-href="{% url 'dashboard:application_detail' app.pk %}">
+         <tr class="app-row" style="cursor:pointer;"
+    data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
             <td>{{ applications.start_index|add:forloop.counter0 }}</td>
 
             <!-- Reference / Received -->
