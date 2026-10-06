@@ -8,9 +8,9 @@ from django.contrib import messages
 from django.db.models import F
 from django import forms
 from django_ckeditor_5.widgets import CKEditor5Widget
-admin.site.site_header = "MedTech Mitra Secretariat"
-admin.site.site_title = "MedTech Mitra Secretariat"
-admin.site.index_title = "Welcome to the Dashboard"
+admin.site.site_header = "MedTech Mitra Tracker"
+admin.site.site_title = "MedTech Mitra Tracker"
+admin.site.index_title = "Manage MedTech Mitra Dashboard"
 
 from .models import (
     Applicant, Application, TACMeeting, KnowledgePartner,

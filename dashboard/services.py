@@ -5,7 +5,7 @@ Kept separate from views.py so the same functions can be:
   - unit-tested independently of HTTP
   - reused by both the HTML dashboard views and any future API/export command
 """
-from django.db.models import Avg, Count, F, ExpressionWrapper, DurationField
+from django.db.models import Avg, Count, F, ExpressionWrapper, DurationField,Q
 from django.db.models.functions import TruncMonth
 from datetime import date
 
@@ -103,7 +103,9 @@ def apply_dashboard_filters(request):
     by_reference = request.GET.get("by_reference")
 
     if by_reference:
-        qs = qs.filter(reference_no__icontains=by_reference)
+        qs = qs.filter( Q(reference_no__icontains=by_reference) |
+        Q(applicant__name__icontains=by_reference) |
+        Q(technology_name__icontains=by_reference))
     if status:
         qs = qs.filter(status=status)
     if medtech_type:

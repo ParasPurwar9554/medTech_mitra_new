@@ -5,12 +5,8 @@
 
 <div class="mb-4">
   <h1 class="h3 fw-semibold mb-2 section-heading">
-      Innovator Application Dashboard
+      Overview
   </h1>
-  <p class="text-muted mb-0">
-    Applications received, TAC review outcomes, knowledge-partner handholding
-    and TRL progression across the MedTech Mitra pipeline.
-  </p>
 </div>
 
 <div class="row g-3 mb-4">
@@ -70,13 +66,13 @@
     <form method="get" class="row g-3 align-items-end">
 
       <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="by_reference">Reference No</label>
+        <label class="form-label small text-uppercase text-muted mb-1" for="by_reference">Search By...</label>
         <input type="text"
                class="form-control"
                name="by_reference"
                id="by_reference"
                value="{{ active_filters.by_reference|default:'' }}"
-               placeholder="Search By Ref. No">
+               placeholder="Reference | Innovator | Technology" title="Reference | Innovator Name | Technology Name">
       </div>
 
       <div class="col-12 col-md-6 col-lg">

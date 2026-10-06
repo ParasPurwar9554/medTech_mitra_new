@@ -44,7 +44,7 @@ def overview(request):
 
     context = {
         "kpis": services.kpi_summary(qs),
-        "status_data": services.applications_by_status(qs),
+        #"status_data": services.applications_by_status(qs),
         "medtech_type_data": services.applications_by_medtech_type(qs),
         "risk_data": services.applications_by_risk_class(qs),
         "partner_data": services.applications_by_knowledge_partner(),
@@ -78,7 +78,7 @@ def application_detail(request, pk):
     )
     context = {
         "application": application,
-        "columns": services.build_progress_tree(application),
+        #"columns": services.build_progress_tree(application),
         "trl_tracker": services.trlprogresstracker(application.reference_no),
     }
     return render(request, "dashboard/application_detail.html", context)
@@ -90,7 +90,7 @@ def chart_data_api(request, chart_name):
     without a full page reload (used by the dashboard's AJAX filter bar)."""
     qs = services.apply_dashboard_filters(request)
     dispatch = {
-        "status": services.applications_by_status,
+        #"status": services.applications_by_status,
         "medtech_type": services.applications_by_medtech_type,
         "risk": services.applications_by_risk_class,
         "trl": lambda _qs=None: services.trl_distribution(),
