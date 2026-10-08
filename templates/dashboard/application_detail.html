@@ -216,113 +216,194 @@
   <!-- =====================================================================
        RIGHT COLUMN
        ===================================================================== -->
-  <div class="col-lg-4">
+<div class="col-lg-4">
 
-    <!-- ---------- Initial TRL ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">Initial TRL</div>
-      <div class="card-body">{{ application.initial_trl|default:"—" }}</div>
+  <!-- ---------- Follow-up Call Details ---------- -->
+  <!-- <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">Follow-up Call Details</div>
+    <div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-6">Need to Call</dt>
+        <dd class="col-sm-6">
+          {% if application.need_to_call is True %}
+            <span class="badge text-bg-success">Yes</span>
+          {% elif application.need_to_call is False %}
+            <span class="badge text-bg-danger">No</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Date of Interaction</dt>
+        <dd class="col-sm-6">
+          {% if application.date_of_interaction %}
+            {{ application.date_of_interaction|date:"d M Y" }}
+          {% else %}
+            {{ application.interaction_status_text|default:"—" }}
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Current Stage of Technology</dt>
+        <dd class="col-sm-6">{{ application.current_technology_stage|default:"—"|linebreaksbr }}</dd>
+
+        <dt class="col-sm-6">Asked Support Given</dt>
+        <dd class="col-sm-6">
+          {% if application.support_given is True %}
+            <span class="badge text-bg-success">Yes</span>
+          {% elif application.support_given is False %}
+            <span class="badge text-bg-danger">No</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Still Working on Technology</dt>
+        <dd class="col-sm-6">
+          {% if application.still_working_on_technology is True %}
+            <span class="badge text-bg-success">Yes</span>
+          {% elif application.still_working_on_technology is False %}
+            <span class="badge text-bg-danger">No</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Requires MedTech Mitra Support</dt>
+        <dd class="col-sm-6">
+          {% if application.requires_support is True %}
+            <span class="badge text-bg-success">Yes</span>
+          {% elif application.requires_support is False %}
+            <span class="badge text-bg-danger">No</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Informed They Can Come Back</dt>
+        <dd class="col-sm-6">
+          {% if application.informed_can_come_back is True %}
+            <span class="badge text-bg-success">Yes</span>
+          {% elif application.informed_can_come_back is False %}
+            <span class="badge text-bg-danger">No</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt class="col-sm-6">Kind of Support Required</dt>
+        <dd class="col-sm-6">{{ application.kind_of_support_required|default:"—" }}</dd>
+
+        <dt class="col-sm-6">Closure Reason / Remarks</dt>
+        <dd class="col-sm-6 mb-0">{{ application.closure_remarks|default:"—"|linebreaksbr }}</dd>
+      </dl>
     </div>
+  </div> -->
 
-    <!-- ---------- Current TRL ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">Current TRL</div>
-      <div class="card-body">{{ application.current_trl|default:"—" }}</div>
-    </div>
+  <!-- ---------- Initial TRL ---------- -->
+  <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">Initial TRL</div>
+    <div class="card-body">{{ application.initial_trl|default:"—" }}</div>
+  </div>
 
-    <!-- ---------- Knowledge partner support ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">Knowledge partner support</div>
+  <!-- ---------- Current TRL ---------- -->
+  <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">Current TRL</div>
+    <div class="card-body">{{ application.current_trl|default:"—" }}</div>
+  </div>
 
-      <div class="card-body">
-        {% for stage in application.trl_stages.all %}
-          {% for a in stage.partner_assignments.all %}
+  <!-- ---------- Knowledge partner support ---------- -->
+  <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">Knowledge partner support</div>
 
-            <div class="border-bottom pb-3 mb-3">
+    <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+      {% for stage in application.trl_stages.all %}
+        {% for a in stage.partner_assignments.all %}
 
-              <strong>{{ a.partner.name }}</strong>
-              <span class="small text-muted">({{ stage.trl.name }})</span>
+          <div class="border-bottom pb-3 mb-3">
 
-              {% if a.partner.short_code != "NA" %}
-                &mdash;
-                {% if a.get_status_display == "Support Completed" or a.get_status_display == "Partner Connected" %}
-                  <span class="badge text-bg-success">{{ a.get_status_display }}</span>
-                {% else %}
-                  <span class="badge text-bg-warning">{{ a.get_status_display }}</span>
-                {% endif %}
+            <strong>{{ a.partner.name }}</strong>
+            <span class="small text-muted">({{ stage.trl.name }})</span>
+
+            {% if a.partner.short_code != "NA" %}
+              &mdash;
+              {% if a.get_status_display == "Support Completed" or a.get_status_display == "Partner Connected" %}
+                <span class="badge text-bg-success">{{ a.get_status_display }}</span>
+              {% else %}
+                <span class="badge text-bg-warning">{{ a.get_status_display }}</span>
               {% endif %}
+            {% endif %}
 
-              <div class="small text-muted mt-1">
-                Allotted {{ a.date_allotted|date:"d M Y"|default:"—" }}
-                {% if a.date_connected %}
-                  &middot; Connected {{ a.date_connected|date:"d M Y" }}
+            <div class="small text-muted mt-1">
+              Allotted {{ a.date_allotted|date:"d M Y"|default:"—" }}
+              {% if a.date_connected %}
+                &middot; Connected {{ a.date_connected|date:"d M Y" }}
+              {% endif %}
+            </div>
+
+            {% if a.support_provided %}
+              <p class="small mt-2 mb-0">{{ a.support_provided }}</p>
+            {% endif %}
+
+          </div>
+
+        {% endfor %}
+      {% empty %}
+        <p class="text-muted mb-0">No knowledge partner assigned yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ---------- Milestones (scrollable) ---------- -->
+  <div class="card mb-3">
+    <div class="card-header bg-white fw-semibold">Milestones</div>
+
+    <ul class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+      {% for stage in application.trl_stages.all %}
+        {% for a in stage.partner_assignments.all %}
+          {% for ms in a.milestones.all %}
+
+            <li class="list-group-item">
+              <div>
+                <strong>
+                  {% if ms.template %}
+                    {{ ms.template.description }}
+                  {% else %}
+                    {{ ms.label }}
+                  {% endif %}
+                </strong>
+                <span class="small text-muted">({{ a.partner.short_code }} &middot; {{ stage.trl.name }})</span>
+
+                {% if ms.status == "closed" %}
+                  <span class="badge text-bg-success">Completed</span>
+                {% else %}
+                  <span class="badge text-bg-warning">{{ ms.get_status_display }}</span>
                 {% endif %}
               </div>
 
-              {% if a.support_provided %}
-                <p class="small mt-2 mb-0">{{ a.support_provided }}</p>
+              <div class="small mt-1">{{ ms.description }}</div>
+
+              {% if ms.action_taken %}
+                <div class="small mt-1">
+                  <strong>Action Taken:</strong> {{ ms.action_taken }}
+                </div>
               {% endif %}
 
-            </div>
-
-          {% endfor %}
-        {% empty %}
-          <p class="text-muted mb-0">No knowledge partner assigned yet.</p>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- ---------- Milestones ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">Milestones</div>
-
-      <ul class="list-group list-group-flush">
-        {% for stage in application.trl_stages.all %}
-          {% for a in stage.partner_assignments.all %}
-            {% for ms in a.milestones.all %}
-
-              <li class="list-group-item">
-                <div>
-                  <strong>
-                    {% if ms.template %}
-                      {{ ms.template.description }}
-                    {% else %}
-                      {{ ms.label }}
-                    {% endif %}
-                  </strong>
-                  <span class="small text-muted">({{ a.partner.short_code }} &middot; {{ stage.trl.name }})</span>
-
-                  {% if ms.status == "closed" %}
-                    <span class="badge text-bg-success">Completed</span>
-                  {% else %}
-                    <span class="badge text-bg-warning">{{ ms.get_status_display }}</span>
-                  {% endif %}
+              {% if ms.date_achieved %}
+                <div class="small mt-1">
+                  <strong>Date:</strong> {{ ms.date_achieved|date:"d M Y" }}
                 </div>
+              {% endif %}
+            </li>
 
-                <div class="small mt-1">{{ ms.description }}</div>
-
-                {% if ms.action_taken %}
-                  <div class="small mt-1">
-                    <strong>Action Taken:</strong> {{ ms.action_taken }}
-                  </div>
-                {% endif %}
-
-                {% if ms.date_achieved %}
-                  <div class="small mt-1">
-                    <strong>Date:</strong> {{ ms.date_achieved|date:"d M Y" }}
-                  </div>
-                {% endif %}
-              </li>
-
-            {% endfor %}
           {% endfor %}
-        {% empty %}
-          <li class="list-group-item text-muted">No milestones recorded.</li>
         {% endfor %}
-      </ul>
-    </div>
-
+      {% empty %}
+        <li class="list-group-item text-muted">No milestones recorded.</li>
+      {% endfor %}
+    </ul>
   </div>
+
+</div>
 </div>
 
 {% endblock %}

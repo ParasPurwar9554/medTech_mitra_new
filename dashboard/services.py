@@ -8,10 +8,18 @@ Kept separate from views.py so the same functions can be:
 from django.db.models import Avg, Count, F, ExpressionWrapper, DurationField,Q
 from django.db.models.functions import TruncMonth
 from datetime import date
+from django.utils.dateparse import parse_date
 
 from core.models import Application, KnowledgePartner, TRLDefinition,KnowledgePartnerAssignment,Milestone
 
+def _to_date(text):
+    """'2024-03-15' -> date(2024, 3, 15). Returns None if empty or wrong."""
+    try:
+        return parse_date(text.strip()) if text else None
+    except ValueError:
+        return None
 
+    
 def kpi_summary(queryset=None):
     qs = queryset if queryset is not None else Application.objects.all()
     #total = qs.count()
@@ -75,7 +83,6 @@ def get_base_queryset(user):
     """Return only the applications this user is allowed to see."""
     # Delegated Admin, Secretariat, superuser: all records
     if user.is_superuser or user.is_admin_role or user.is_secretariat:
-        print("IN delegated")
         return Application.objects.all()
 
     # Knowledge Partner: only applications assigned to their partner
@@ -98,8 +105,8 @@ def apply_dashboard_filters(request):
     medtech_type = request.GET.get("medtech_type")
     risk = request.GET.get("risk_classification")
     partner = request.GET.get("partner")
-    date_from = request.GET.get("date_from")
-    date_to = request.GET.get("date_to")
+    date_from = _to_date(request.GET.get("date_from"))  
+    date_to = _to_date(request.GET.get("date_to"))
     by_reference = request.GET.get("by_reference")
 
     if by_reference:
@@ -114,10 +121,18 @@ def apply_dashboard_filters(request):
         qs = qs.filter(risk_classification=risk)
     if partner:
         qs = qs.filter(trl_stages__partner_assignments__partner__short_code=partner)
-    if date_from:
-        qs = qs.filter(date_received__gte=date_from)
-    if date_to:
-        qs = qs.filter(date_received__lte=date_to)
+    if date_from or date_to:
+        received_q = Q()
+        meeting_q = Q()
+
+        if date_from:
+            received_q &= Q(date_received__gte=date_from)
+            meeting_q &= Q(tac_meetings__meeting_date__gte=date_from)
+        if date_to:
+            received_q &= Q(date_received__lte=date_to)
+            meeting_q &= Q(tac_meetings__meeting_date__lte=date_to)
+
+        qs = qs.filter(received_q | meeting_q)
     return qs.distinct()
 
 

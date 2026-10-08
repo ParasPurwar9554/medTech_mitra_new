@@ -88,7 +88,7 @@
       </div>
 
       <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="medtech_type">Innovation categories</label>
+        <label class="form-label small text-uppercase text-muted mb-1" for="medtech_type">Categories</label>
         <select class="form-select" name="medtech_type" id="medtech_type">
           <option value="">All types</option>
           {% for value, label in medtech_type_choices %}
@@ -112,7 +112,7 @@
       </div>
       {% if request.user.is_superuser or request.user.is_admin_role %}
       <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="partner">Knowledge partner</label>
+        <label class="form-label small text-uppercase text-muted mb-1" for="partner">Partners</label>
         <select class="form-select" name="partner" id="partner">
           <option value="">All partners</option>
           {% for p in partners %}
@@ -123,6 +123,16 @@
         </select>
       </div>
       {% endif %}
+      <div class="col-12 col-md-6 col-lg">
+        <label class="form-label small text-uppercase text-muted mb-1" for="date_from">From Date</label>
+        <input type="date" class="form-control" name="date_from" id="date_from"
+               value="{{ active_filters.date_from }}">
+      </div>
+      <div class="col-12 col-md-6 col-lg">
+        <label class="form-label small text-uppercase text-muted mb-1" for="date_to">To Date</label>
+        <input type="date" class="form-control" name="date_to" id="date_to"
+               value="{{ active_filters.date_to }}">
+      </div>
       <div class="col-12 col-lg-auto d-flex gap-2">
         <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
         <button type="submit" class="btn btn-icmr">Apply filters</button>
@@ -144,13 +154,13 @@
       <colgroup>
         <col style="width:4%">   <!-- S.N. -->
         <col style="width:14%">  <!-- Reference -->
-        <col style="width:22%">  <!-- Technology -->
+        <col style="width:28%">  <!-- Technology -->
         <col style="width:11%">  <!-- Category -->
         <col style="width:8%">   <!-- Class -->
         <col style="width:10%">  <!-- Status -->
         <col style="width:17%">  <!-- TRL -->
-        {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner %}
-          <col style="width:14%"> <!-- Action -->
+        {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
+          <col style="width:8%"> <!-- Action -->
         {% endif %}
       </colgroup>
 
@@ -164,14 +174,17 @@
           <th>Status</th>
           <th>TRL Progress</th>
           {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
-            <th>Action</th>
+            <th class="text-center">Action</th>
           {% endif %}
         </tr>
       </thead>
+
       <tbody>
         {% for app in applications %}
-         <tr class="app-row" style="cursor:pointer;"
-    data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+          <tr class="app-row" style="cursor:pointer;"
+              data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+
+            <!-- S.N. -->
             <td>{{ applications.start_index|add:forloop.counter0 }}</td>
 
             <!-- Reference / Received -->
@@ -213,9 +226,7 @@
               {% elif app.status == "completed" %}
                 <span class="badge text-bg-success">Completed</span>
               {% else %}
-                <span class="badge text-bg-secondary">
-                  {{ app.get_status_display }}
-                </span>
+                <span class="badge text-bg-secondary">{{ app.get_status_display }}</span>
               {% endif %}
             </td>
 
@@ -241,43 +252,60 @@
               {% endif %}
             </td>
 
-           {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
-          <td class="action-cell">
-            <div class="d-grid gap-2">
+            <!-- Action -->
+            {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
+              <td class="action-cell">
+                <div class="d-flex justify-content-center gap-1">
 
-      {% if request.user.is_superuser or request.user.is_admin_role %}
-        <button type="button"
-                class="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-1 js-assign-btn"
-                data-app-id="{{ app.id }}"
-                data-initial-trl="{{ app.initial_trl_id|default:'' }}"
-                data-current-trl="{{ app.current_trl_id|default:'' }}"
-                data-medtech-type="{{ app.medtech_type }}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <line x1="19" y1="8" x2="19" y2="14"/>
-            <line x1="22" y1="11" x2="16" y2="11"/>
-          </svg>
-          Assign Partner
-        </button>
-      {% endif %}
+                  {% if request.user.is_superuser or request.user.is_admin_role %}
+                    <!-- Assign Partner -->
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary action-icon-btn js-assign-btn"
+                            data-app-id="{{ app.id }}"
+                            data-initial-trl="{{ app.initial_trl_id|default:'' }}"
+                            data-current-trl="{{ app.current_trl_id|default:'' }}"
+                            data-medtech-type="{{ app.medtech_type }}"
+                            data-bs-toggle="tooltip" title="Assign Partner"
+                            aria-label="Assign Partner">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="19" y1="8" x2="19" y2="14"/>
+                        <line x1="22" y1="11" x2="16" y2="11"/>
+                      </svg>
+                    </button>
+                  {% endif %}
 
-      <button type="button"
-              class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-1 js-milestone-btn"
-              data-app-id="{{ app.id }}">
-        <!-- checklist icon -->
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="9 11 12 14 22 4"/>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-        </svg>
-        {% if request.user.applicant_id %}Milestones &amp; Files{% else %}Manage Milestones &amp; Files{% endif %}
-      </button>
+                  <!-- Manage Milestones -->
+                  <button type="button"
+                          class="btn btn-sm btn-outline-success action-icon-btn js-milestone-btn"
+                          data-app-id="{{ app.id }}"
+                          data-bs-toggle="tooltip" title="Manage Milestones"
+                          aria-label="Manage Milestones">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polyline points="9 11 12 14 22 4"/>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                  </button>
 
-    </div>
-  </td>
-{% endif %}
+                  <!-- Manage TRL Attachments -->
+                  <button type="button"
+                          class="btn btn-sm btn-outline-secondary action-icon-btn js-files-btn"
+                          data-app-id="{{ app.id }}"
+                          data-ref="{{ app.reference_no }}"
+                          data-bs-toggle="tooltip" title="Manage TRL Attachments"
+                          aria-label="Manage TRL Attachments">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </button>
+
+                </div>
+              </td>
+            {% endif %}
 
           </tr>
 
@@ -328,7 +356,7 @@
 <div class="modal fade" id="assign-modal" tabindex="-1"
      aria-labelledby="assign-modal-title" aria-hidden="true"
      data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
 
       <div class="modal-header">
@@ -397,6 +425,27 @@
   </div>
 </div>
 
+<div class="modal fade" id="files-modal" tabindex="-1"
+     aria-labelledby="files-modal-title" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title" id="files-modal-title">Files</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body" id="files-modal-body"></div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 {{ trl_definitions_json|json_script:"trl-data" }}
 
 {% endblock %}
@@ -404,7 +453,9 @@
 
 {% block extra_js %}
 <script>
-
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+    new bootstrap.Tooltip(el);
+});
 function getCookie(name) {
     let cookieValue = null;
 
@@ -716,12 +767,9 @@ function openMilestoneModal(applicationId) {
                 <div class="spinner-border" role="status" aria-label="Loading"></div>
             </div>
         </div>
-        <div id="ms-attachments" class="border-top pt-3 mt-2"></div>
     `);
 
     getModal('milestone-modal').show();
-
-    loadAttachments();   // files load on their own
 
     $.ajax({
         url: '/ajax/application-milestones/',
@@ -840,6 +888,29 @@ function openMilestoneModal(applicationId) {
     });
 }
 
+// "Manage Files" button
+let filesAppId = null;   // application currently open in the Files popup
+
+$(document).on('click', '.js-files-btn', function () {
+    openFilesModal($(this).data('app-id'), $(this).data('ref'));
+});
+
+function openFilesModal(applicationId, referenceNo) {
+    filesAppId = applicationId;
+
+    $('#files-modal-title').text(referenceNo ? 'Files: ' + referenceNo : 'Files');
+    $('#files-modal-body').html('<div id="files-attachments"></div>');
+
+    getModal('files-modal').show();
+    loadAttachments();
+}
+
+// Clear the popup when it closes
+document.getElementById('files-modal').addEventListener('hidden.bs.modal', function () {
+    $('#files-modal-body').empty();
+    filesAppId = null;
+});
+
 
 /* =========================================================================
    Attachments (inside the milestones popup)
@@ -856,17 +927,17 @@ const ROLE_BADGE = {
 
 
 function loadAttachments(successMsg) {
-    const $box = $('#ms-attachments');
+    const $box = $('#files-attachments');
     $box.html('<p class="text-muted small mb-0">Loading attachments...</p>');
 
     $.ajax({
         url: '/ajax/trl-attachments/',
         type: 'GET',
         dataType: 'json',
-        data: { application_id: milestoneAppId }
+        data: { application_id: filesAppId }
     })
     .done(function (data) {
-        let html = '<h6 class="mb-3">Attachments</h6>';
+        let html = '';
 
         if (data.stages.length === 0) {
             html += '<p class="text-muted small mb-0">No TRL stage has started yet, so files cannot be uploaded.</p>';
@@ -892,9 +963,9 @@ function loadAttachments(successMsg) {
                         <input type="file" class="form-control form-control-sm" id="att-file" accept="${ATTACH_ACCEPT}">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label small mb-1" for="att-note">Note (optional)</label>
+                        <label class="form-label small mb-1" for="att-note">Description <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="att-note" maxlength="255"
-                               placeholder="e.g. Test report v2">
+                               placeholder="e.g. Test report v2" required>
                     </div>
                     <div class="col-md-2 d-grid">
                         <button type="button" class="btn btn-primary btn-sm" id="att-upload-btn">Upload</button>
@@ -907,7 +978,10 @@ function loadAttachments(successMsg) {
         // ---- File list, one block per TRL stage ----
         data.stages.forEach(function (s) {
             html += `<div class="mb-3">
-                        <div class="fw-semibold small mb-1">${esc(s.trl_name)}</div>`;
+                        <div class="fw-semibold small mb-1">
+                            ${esc(s.trl_name)}
+                            <span class="badge rounded-pill text-bg-light border ms-1">${s.files.length}</span>
+                        </div>`;
 
             if (s.files.length === 0) {
                 html += '<p class="text-muted small mb-0">No files yet.</p></div>';
@@ -920,7 +994,7 @@ function loadAttachments(successMsg) {
                         <thead class="table-light">
                             <tr>
                                 <th>File</th>
-                                <th>Note</th>
+                                <th>Description</th>
                                 <th>Uploaded by</th>
                                 <th>Date</th>
                                 <th style="width:70px"></th>
@@ -956,7 +1030,7 @@ function loadAttachments(successMsg) {
         $box.html(html);
 
         if (successMsg) {
-            setMsg($('#att-msg'), 'text-success', successMsg);
+            setMsg($('#att-msg'), 'text-success', successMsg, 3);
         }
     })
     .fail(function (xhr) {
@@ -973,18 +1047,25 @@ $(document).on('click', '#att-upload-btn', function () {
     const file = $('#att-file')[0].files[0];
 
     if (!file) {
-        setMsg($msg, 'text-danger', 'Please choose a file.');
+        setMsg($msg, 'text-danger', 'Please choose a file.',3);
         return;
     }
     if (file.size > ATTACH_MAX_MB * 1024 * 1024) {
-        setMsg($msg, 'text-danger', `File is too big. Maximum size is ${ATTACH_MAX_MB} MB.`);
+        setMsg($msg, 'text-danger', `File is too big. Maximum size is ${ATTACH_MAX_MB} MB.`,3);
         return;
     }
 
+    const note = $('#att-note').val().trim();
+
+    if (!note) {
+        setMsg($msg, 'text-danger', 'Please enter a description.',3);
+        $('#att-note').focus();
+        return;
+    }
     const formData = new FormData();
     formData.append('trl_stage_id', $('#att-stage').val());
     formData.append('file', file);
-    formData.append('note', $('#att-note').val());
+    formData.append('note', note);
 
     $btn.prop('disabled', true);
     setMsg($msg, 'text-muted', 'Uploading...');
@@ -1158,6 +1239,25 @@ $(document).on('click', '.ms-history-toggle', function (e) {
         $body.html('<span class="text-danger">Could not load history.</span>');
     });
 });
+
+
+function setMsg($el, colorClass, text, hideAfterSeconds) {
+    // Stop any old timer on this element
+    clearTimeout($el.data('hideTimer'));
+
+    $el.removeClass('text-success text-danger text-muted')
+       .addClass(colorClass)
+       .text(text);
+
+    // If seconds are given, clear the message after that time
+    if (hideAfterSeconds) {
+        const timer = setTimeout(function () {
+            $el.text('');
+        }, hideAfterSeconds * 1000);
+
+        $el.data('hideTimer', timer);
+    }
+}
 
 </script>
 {% endblock %}

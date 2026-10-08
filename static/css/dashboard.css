@@ -532,3 +532,14 @@ button:focus-visible,
 .login-card .input-group:focus-within .input-group-text {
   border-color: var(--icmr-focus);
 }
+
+.action-icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+

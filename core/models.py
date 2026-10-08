@@ -42,9 +42,9 @@ class KnowledgePartner(models.Model):
 class TRLDefinition(models.Model):
 
     class MedTechCategoryType(models.TextChoices):
-        MMDD = "MM-DD", "Device & Diagnostics"
+        MMDD = "MM-DD", "Device & Assistive Technologies"
         MMVT = "MM-VT", "Vaccines & Therapeutics"
-        MMAT = "MM-AT", "Assitive Technologies"
+        MMAT = "MM-AT", "Diagnostics"
 
     medtech_type = models.CharField(
         max_length=10,
@@ -101,7 +101,7 @@ class Applicant(TimeStampedModel):
     )
     affiliation_name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
-    contact_number = models.CharField(max_length=20, blank=True)
+    contact_number = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True)
 
     class Meta:
@@ -114,9 +114,9 @@ class Applicant(TimeStampedModel):
 class Application(TimeStampedModel):
 
     class MedTechType(models.TextChoices):
-        MMDD = "MM-DD", "Device & Diagnostics"
+        MMDD = "MM-DD", "Device & Assistive Technologies"
         MMVT = "MM-VT", "Vaccines & Therapeutics"
-        MMAT = "MM-AT", "Assitive Technologies"
+        MMAT = "MM-AT", "Diagnostics"
 
     class RiskClass(models.TextChoices):
         CLASS_A = "A", "Class A"
@@ -186,6 +186,36 @@ class Application(TimeStampedModel):
     closure_date = models.DateField(null=True, blank=True)
     reason_for_closure = models.TextField(blank=True,null=True)
     summary_Technology = models.TextField(blank=True,null=True)
+        # ---------- New fields from Excel ----------
+    allocated_to = models.CharField(max_length=100, blank=True)           # Alocation
+
+    # Test license
+    test_license_status = models.CharField(max_length=50, blank=True)     # Test License
+    tl_facilitated = models.CharField(max_length=50, blank=True)          # TL Facilitated
+    test_license_copy_link = models.CharField(max_length=500, blank=True) # Test License Copy (Link)
+
+    # Other info
+    sorting_remarks = models.CharField(max_length=255, blank=True)        # Remarks (temp for sorting)
+    financial_opportunities = models.TextField(blank=True)
+    tac_closed_in = models.CharField(max_length=50, blank=True)           # TAC No in which closed
+
+    # Knowledge partner (saved as text for now)
+    kp_assigned_screening = models.CharField(max_length=255, blank=True)
+    kp_assigned_handholding = models.CharField(max_length=255, blank=True)
+    kp_assigned = models.BooleanField(null=True, blank=True)              # 'assigned' Yes/No
+    remarks = models.TextField(blank=True)
+
+    # Follow-up call details
+    need_to_call = models.BooleanField(null=True, blank=True)
+    date_of_interaction = models.DateField(null=True, blank=True)
+    interaction_status_text = models.CharField(max_length=255, blank=True)  # if the cell is text, not a date
+    current_technology_stage = models.TextField(blank=True)
+    support_given = models.BooleanField(null=True, blank=True)
+    still_working_on_technology = models.BooleanField(null=True, blank=True)
+    requires_support = models.BooleanField(null=True, blank=True)
+    informed_can_come_back = models.BooleanField(null=True, blank=True)
+    kind_of_support_required = models.CharField(max_length=255, blank=True)
+    closure_remarks = models.TextField(blank=True)                        # Closure Reason/ Remarks (if any)
     
 
     class Meta:

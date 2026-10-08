@@ -24,7 +24,7 @@ MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
 def overview(request):
     qs = services.apply_dashboard_filters(request)
     applications_qs = qs.select_related("applicant","current_trl").order_by(F("date_received").desc(nulls_last=True),"-id",)
-    paginator = Paginator(applications_qs, 20)
+    paginator = Paginator(applications_qs, 40)
     page_number = request.GET.get("page", 1)
     applications_page = paginator.get_page(page_number)
     trl_qs = (
@@ -730,6 +730,10 @@ def upload_trl_attachment(request):
         return JsonResponse({"error": "Please choose a file."}, status=400)
     if uploaded.size > MAX_ATTACHMENT_SIZE:
         return JsonResponse({"error": "File is too big. Maximum size is 10 MB."}, status=400)
+
+    note = request.POST.get('note', '').strip()
+    if not note:
+        return JsonResponse({'error': 'Description is required.'}, status=400)
 
     attachment = TRLStageAttachment(
         trl_stage=stage,
