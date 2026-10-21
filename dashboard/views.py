@@ -1,9 +1,9 @@
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST
-from django.http import JsonResponse,FileResponse,Http404
+from django.http import JsonResponse,FileResponse,Http404,HttpResponse
 import json
 from django.core.serializers.json import DjangoJSONEncoder
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404,redirect
 from django.utils import timezone
 from django.core.paginator import Paginator
 
@@ -13,20 +13,26 @@ from . import services
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Count,F,Prefetch
-from core.models import PartnerMilestoneTemplate
-from core.models import TRLProgressLog
+from core.models import PartnerMilestoneTemplate,TRLProgressLog
 from django.core.exceptions import ValidationError
-
+import csv
+import logging
+from django.contrib import messages
+from django.urls import reverse
+logger = logging.getLogger(__name__)
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
 
 
 @login_required
 def overview(request):
     qs = services.apply_dashboard_filters(request)
-    applications_qs = qs.select_related("applicant","current_trl").order_by(F("date_received").desc(nulls_last=True),"-id",)
+    applications_qs = qs.select_related("applicant", "current_trl").order_by(
+        F("date_received").desc(nulls_last=True), "-id",
+    )
     paginator = Paginator(applications_qs, 40)
     page_number = request.GET.get("page", 1)
     applications_page = paginator.get_page(page_number)
+
     trl_qs = (
         ApplicationTRLStage.objects
         .values('trl__level', 'trl__name')
@@ -42,6 +48,22 @@ def overview(request):
     all_trls_qs = TRLDefinition.objects.filter(level__gt=0).order_by("level")
     trl_definitions = list(all_trls_qs.values("id", "name", "medtech_type"))
 
+    is_admin = request.user.is_superuser or request.user.is_admin_role
+    trl_movement = services.get_trl_movement(request) if is_admin else []
+    #print("trl_movement: ", trl_movement)
+    # Numbers for the summary strip
+    movement_summary = {
+        "total": sum(r["total"] for r in trl_movement),
+        "moved": sum(r["total"] for r in trl_movement if r["steps"] > 0),
+        "not_moved": sum(r["total"] for r in trl_movement if r["steps"] == 0),
+    }
+
+    # Link that removes only the TRL filter (keeps the other filters)
+    params = request.GET.copy()
+    for key in ("trl_from", "trl_to", "page"):
+        params.pop(key, None)
+        clear_trl_url = "?" + params.urlencode()
+
     context = {
         "kpis": services.kpi_summary(qs),
         #"status_data": services.applications_by_status(qs),
@@ -50,6 +72,8 @@ def overview(request):
         "partner_data": services.applications_by_knowledge_partner(),
         "trl_data": trl_data,
         "trl_levels": [row["level"] for row in trl_data],
+        "trl_level_choices": range(1, 10),                     # NEW: for From/To TRL dropdowns
+        #"trl_movement": services.get_trl_movement(request),    # NEW: movement table
         "status_choices": Application.ApplicationStatus.choices,
         "medtech_type_choices": Application.MedTechType.choices,
         "risk_choices": Application.RiskClass.choices,
@@ -58,6 +82,10 @@ def overview(request):
         "applications": applications_page,
         "all_trls": all_trls_qs,
         "trl_definitions_json": trl_definitions,
+        "is_admin": is_admin,
+        "trl_movement": trl_movement,
+        "movement_summary": movement_summary,
+        "clear_trl_url": clear_trl_url,
     }
     return render(request, "dashboard/overview.html", context)
 
@@ -776,3 +804,79 @@ def delete_trl_attachment(request):
     att.file.delete(save=False)   # remove the file from disk
     att.delete()
     return JsonResponse({"ok": True})
+
+
+
+@login_required
+def export_applications(request):
+    try:
+        # 1. Use the SAME filters as the dashboard
+        qs = services.apply_dashboard_filters(request)
+
+        # 2. Load related data in bulk and use the same order as the table
+        applications = (
+            qs.select_related("applicant", "initial_trl", "current_trl")
+              .prefetch_related("trl_stages__partner_assignments__partner")
+              .order_by(F("date_received").desc(nulls_last=True), "-id")
+        )
+
+        # 3. Prepare the file download
+        filename = f"applications_{timezone.localdate():%Y-%m-%d}.csv"
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response.write("\ufeff")  # makes Excel read special characters correctly
+
+        writer = csv.writer(response)
+
+        # 4. Header row
+        writer.writerow([
+            "Reference No",
+            "Innovator",
+            "Technology",
+            "Status",
+            "Category",
+            "Risk Class",
+            "Knowledge Partner(s)",
+            "Initial TRL",
+            "Current TRL",
+            "Date Received",
+        ])
+
+        # 5. One row per application
+        for app in applications:
+            partners = sorted({
+                pa.partner.short_code
+                for stage in app.trl_stages.all()
+                for pa in stage.partner_assignments.all()
+                if pa.partner
+            })
+
+            writer.writerow([
+                app.reference_no,
+                app.applicant.name if app.applicant else "",
+                app.technology_name,
+                app.get_status_display(),
+                app.get_medtech_type_display(),
+                app.get_risk_classification_display() if app.risk_classification else "",
+                ", ".join(partners),
+                f"TRL {app.initial_trl.level}" if app.initial_trl else "",
+                f"TRL {app.current_trl.level}" if app.current_trl else "",
+                app.date_received.strftime("%d-%m-%Y") if app.date_received else "",
+            ])
+
+        return response
+
+    except Exception:
+        logger.exception("Export failed for user %s", request.user.pk)
+        error_text = "Sorry, the export failed. Please try again or contact support."
+
+        # Request came from jQuery: send the error as JSON
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"error": error_text}, status=500)
+
+        # Normal request: redirect with a Django message (old behaviour)
+        messages.error(request, error_text)
+        url = reverse("dashboard:overview")
+        if request.GET:
+            url += "?" + request.GET.urlencode()
+        return redirect(url)

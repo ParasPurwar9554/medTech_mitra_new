@@ -9,6 +9,7 @@ from django.db.models import Avg, Count, F, ExpressionWrapper, DurationField,Q
 from django.db.models.functions import TruncMonth
 from datetime import date
 from django.utils.dateparse import parse_date
+from django.db.models import Q, Count
 
 from core.models import Application, KnowledgePartner, TRLDefinition,KnowledgePartnerAssignment,Milestone
 
@@ -99,20 +100,24 @@ def get_base_queryset(user):
     # Anyone else: nothing
     return Application.objects.none()
 
-def apply_dashboard_filters(request):
+def apply_dashboard_filters(request, include_trl=True):
     qs = get_base_queryset(request.user)
     status = request.GET.get("status")
     medtech_type = request.GET.get("medtech_type")
     risk = request.GET.get("risk_classification")
     partner = request.GET.get("partner")
-    date_from = _to_date(request.GET.get("date_from"))  
+    date_from = _to_date(request.GET.get("date_from"))
     date_to = _to_date(request.GET.get("date_to"))
     by_reference = request.GET.get("by_reference")
+    trl_from = request.GET.get("trl_from", "")
+    trl_to = request.GET.get("trl_to", "")
 
     if by_reference:
-        qs = qs.filter( Q(reference_no__icontains=by_reference) |
-        Q(applicant__name__icontains=by_reference) |
-        Q(technology_name__icontains=by_reference))
+        qs = qs.filter(
+            Q(reference_no__icontains=by_reference) |
+            Q(applicant__name__icontains=by_reference) |
+            Q(technology_name__icontains=by_reference)
+        )
     if status:
         qs = qs.filter(status=status)
     if medtech_type:
@@ -124,7 +129,6 @@ def apply_dashboard_filters(request):
     if date_from or date_to:
         received_q = Q()
         meeting_q = Q()
-
         if date_from:
             received_q &= Q(date_received__gte=date_from)
             meeting_q &= Q(tac_meetings__meeting_date__gte=date_from)
@@ -133,8 +137,40 @@ def apply_dashboard_filters(request):
             meeting_q &= Q(tac_meetings__meeting_date__lte=date_to)
 
         qs = qs.filter(received_q | meeting_q)
+
+    # TRL filters (skipped when building the movement table)
+    if include_trl:
+        if trl_from.isdigit():
+            qs = qs.filter(initial_trl__level=int(trl_from))
+        if trl_to.isdigit():
+            qs = qs.filter(current_trl__level=int(trl_to))
+
     return qs.distinct()
 
+def get_trl_movement(request):
+    # All filters EXCEPT the TRL ones
+    qs = apply_dashboard_filters(request)
+
+    rows = list(
+        qs.filter(initial_trl__isnull=False, current_trl__isnull=False)
+          .values("initial_trl__level", "current_trl__level")
+          .annotate(total=Count("id", distinct=True))
+          .order_by("initial_trl__level", "current_trl__level")
+    )
+
+    params = request.GET.copy()
+    params.pop("page", None)
+
+    for row in rows:
+        row["from_level"] = row["initial_trl__level"]
+        row["to_level"] = row["current_trl__level"]
+        row["steps"] = row["to_level"] - row["from_level"]
+
+        params["trl_from"] = row["from_level"]
+        params["trl_to"] = row["to_level"]
+        row["url"] = "?" + params.urlencode()
+
+    return rows
 
 def build_progress_tree(application):
     trl_logs = sorted(application.trl_history.all(), key=lambda log: log.changed_on)

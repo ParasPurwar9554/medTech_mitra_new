@@ -19,5 +19,6 @@ urlpatterns = [
     path("ajax/trl-attachments/upload/", views.upload_trl_attachment, name="upload_trl_attachment"),
     path("ajax/trl-attachments/delete/", views.delete_trl_attachment, name="delete_trl_attachment"),
     path("ajax/trl-attachments/download/<int:pk>/", views.download_trl_attachment, name="download_trl_attachment"),
+    path("export/", views.export_applications, name="export_applications"),
 
 ]

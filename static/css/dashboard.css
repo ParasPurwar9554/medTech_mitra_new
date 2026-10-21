@@ -543,3 +543,9 @@ button:focus-visible,
     border-radius: 6px;
 }
 
+.trl-dot {
+    width: 12px;
+    height: 6px;
+    border-radius: 3px;
+    display: inline-block;
+}

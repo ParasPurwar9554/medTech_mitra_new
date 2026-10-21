@@ -8,7 +8,14 @@
       Overview
   </h1>
 </div>
-
+<div id="messageArea" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080; max-width: 400px;">
+  {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show auto-dismiss shadow mb-2" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+</div>
 <div class="row g-3 mb-4">
 
   <!-- Total Applications -->
@@ -60,22 +67,26 @@
   </div>
 
 </div>
+
 <!-- ===================== Filter bar ===================== -->
 <div class="card mb-4">
   <div class="card-body">
     <form method="get" class="row g-3 align-items-end">
 
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="by_reference">Search By...</label>
+      <!-- Search -->
+      <div class="col-12 {% if is_admin %}col-lg-4{% else %}col-lg{% endif %}">
+        <label class="form-label small text-uppercase text-muted mb-1" for="by_reference">Search</label>
         <input type="text"
                class="form-control"
                name="by_reference"
                id="by_reference"
                value="{{ active_filters.by_reference|default:'' }}"
-               placeholder="Reference | Innovator | Technology" title="Reference | Innovator Name | Technology Name">
+               placeholder="Reference, innovator or technology"
+               title="Reference | Innovator Name | Technology Name">
       </div>
 
-      <div class="col-12 col-md-6 col-lg">
+      <!-- Status -->
+      <div class="col-12 col-md-4 col-lg-2">
         <label class="form-label small text-uppercase text-muted mb-1" for="status">Status</label>
         <select class="form-select" name="status" id="status">
           <option value="">All statuses</option>
@@ -87,10 +98,11 @@
         </select>
       </div>
 
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="medtech_type">Categories</label>
+      <!-- Category -->
+      <div class="col-12 col-md-4 {% if is_admin %}col-lg-3{% else %}col-lg-2{% endif %}">
+        <label class="form-label small text-uppercase text-muted mb-1" for="medtech_type">Category</label>
         <select class="form-select" name="medtech_type" id="medtech_type">
-          <option value="">All types</option>
+          <option value="">All categories</option>
           {% for value, label in medtech_type_choices %}
             <option value="{{ value }}" {% if active_filters.medtech_type == value %}selected{% endif %}>
               {{ label }}
@@ -99,49 +111,175 @@
         </select>
       </div>
 
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="risk_classification">Classification</label>
-        <select class="form-select" name="risk_classification" id="risk_classification">
-          <option value="">All classes</option>
-          {% for value, label in risk_choices %}
-            <option value="{{ value }}" {% if active_filters.risk_classification == value %}selected{% endif %}>
-              {{ label }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-      {% if request.user.is_superuser or request.user.is_admin_role %}
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="partner">Partners</label>
-        <select class="form-select" name="partner" id="partner">
-          <option value="">All partners</option>
-          {% for p in partners %}
-            <option value="{{ p.short_code }}" {% if active_filters.partner == p.short_code %}selected{% endif %}>
-              {{ p.short_code }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
+      {% if is_admin %}
+        <!-- Partner (admin only) -->
+        <div class="col-12 col-md-4 col-lg-3">
+          <label class="form-label small text-uppercase text-muted mb-1" for="partner">Partner</label>
+          <select class="form-select" name="partner" id="partner">
+            <option value="">All partners</option>
+            {% for p in partners %}
+              <option value="{{ p.short_code }}" {% if active_filters.partner == p.short_code %}selected{% endif %}>
+                {{ p.short_code }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Start a new line for admins -->
+        <div class="w-100"></div>
       {% endif %}
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="date_from">From Date</label>
-        <input type="date" class="form-control" name="date_from" id="date_from"
-               value="{{ active_filters.date_from }}">
+
+      <!-- Date range -->
+      <div class="col-12 col-md-6 col-lg-4">
+        <label class="form-label small text-uppercase text-muted mb-1" for="date_from">Date range</label>
+        <div class="input-group">
+          <input type="date" class="form-control" name="date_from" id="date_from"
+                 value="{{ active_filters.date_from }}" aria-label="From date">
+          <span class="input-group-text">to</span>
+          <input type="date" class="form-control" name="date_to" id="date_to"
+                 value="{{ active_filters.date_to }}" aria-label="To date">
+        </div>
       </div>
-      <div class="col-12 col-md-6 col-lg">
-        <label class="form-label small text-uppercase text-muted mb-1" for="date_to">To Date</label>
-        <input type="date" class="form-control" name="date_to" id="date_to"
-               value="{{ active_filters.date_to }}">
-      </div>
-      <div class="col-12 col-lg-auto d-flex gap-2">
-        <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
-        <button type="submit" class="btn btn-icmr">Apply filters</button>
-      </div>
+
+      {% if is_admin %}
+        <!-- TRL movement (admin only) -->
+        <div class="col-12 col-md-6 col-lg-4">
+          <label class="form-label small text-uppercase text-muted mb-1" for="trl_from">TRL movement</label>
+          <div class="input-group">
+            <select class="form-select" name="trl_from" id="trl_from" aria-label="From TRL">
+              <option value="">Initial TRL</option>
+              {% for level in trl_level_choices %}
+                <option value="{{ level }}" {% if active_filters.trl_from == level|stringformat:"d" %}selected{% endif %}>
+                  TRL {{ level }}
+                </option>
+              {% endfor %}
+            </select>
+            <span class="input-group-text">&rarr;</span>
+            <select class="form-select" name="trl_to" id="trl_to" aria-label="To TRL">
+              <option value="">Current TRL</option>
+              {% for level in trl_level_choices %}
+                <option value="{{ level }}" {% if active_filters.trl_to == level|stringformat:"d" %}selected{% endif %}>
+                  TRL {{ level }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      {% endif %}
+
+    <!-- Buttons -->
+    <div class="col-12 {% if is_admin %}col-lg{% else %}col-lg-auto{% endif %} d-flex gap-2 justify-content-lg-end">
+      <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
+      {% if is_admin %}
+<button type="button"
+        id="exportBtn"
+        data-url="{% url 'dashboard:export_applications' %}"
+        class="btn btn-outline-success">
+  <span class="spinner-border spinner-border-sm me-1 d-none" id="exportSpinner" role="status" aria-hidden="true"></span>
+  <span id="exportText">Export CSV</span>
+</button>
+{% endif %}
+      <button type="submit" class="btn btn-icmr">Apply filters</button>
+    </div>
 
     </form>
   </div>
 </div>
 
+<!-- ===================== TRL Movement ===================== -->
+{% if is_admin and trl_movement %}
+<div class="card mb-4">
+
+  <!-- Header -->
+  <div class="card-header card-header-icmr d-flex justify-content-between align-items-center">
+    <span>TRL Movement</span>
+    {% if active_filters.trl_from or active_filters.trl_to %}
+      <a href="{{ clear_trl_url }}" class="small text-white text-decoration-underline">Clear TRL filter</a>
+    {% else %}
+      <span class="small fw-normal">Click a number to see those applications</span>
+    {% endif %}
+  </div>
+
+  <!-- Summary strip -->
+  <div class="row g-0 text-center border-bottom">
+    <div class="col-4 py-2 border-end">
+      <div class="fs-5 fw-semibold">{{ movement_summary.total }}</div>
+      <div class="small text-muted">Tracked</div>
+    </div>
+    <div class="col-4 py-2 border-end">
+      <div class="fs-5 fw-semibold text-success">{{ movement_summary.moved }}</div>
+      <div class="small text-muted">Moved forward</div>
+    </div>
+    <div class="col-4 py-2">
+      <div class="fs-5 fw-semibold text-secondary">{{ movement_summary.not_moved }}</div>
+      <div class="small text-muted">Not moved yet</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card-body p-0" style="max-height:320px; overflow-y:auto;">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light small" style="position:sticky; top:0; z-index:1;">
+        <tr>
+          <th class="ps-3">Movement</th>
+          <th>Progress</th>
+          <th>Change</th>
+          <th class="text-end pe-3">Applications</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in trl_movement %}
+          <tr>
+
+            <!-- TRL 2 → TRL 6 -->
+            <td class="ps-3 fw-semibold small text-nowrap">
+              TRL {{ row.from_level }}
+              <span class="text-muted mx-1">&rarr;</span>
+              TRL {{ row.to_level }}
+            </td>
+
+            <!-- Mini track: 9 small bars, coloured from start to current level -->
+            <td>
+              <div class="d-flex gap-1" title="TRL {{ row.from_level }} to TRL {{ row.to_level }}">
+                {% for level in trl_level_choices %}
+                  {% if row.steps > 0 and level >= row.from_level and level <= row.to_level %}
+                    <span class="trl-dot bg-success"></span>
+                  {% elif row.steps < 0 and level <= row.from_level and level >= row.to_level %}
+                    <span class="trl-dot bg-warning"></span>
+                  {% elif row.steps == 0 and level == row.from_level %}
+                    <span class="trl-dot bg-secondary"></span>
+                  {% else %}
+                    <span class="trl-dot bg-body-secondary"></span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </td>
+
+            <!-- Change badge -->
+            <td>
+              {% if row.steps > 0 %}
+                <span class="badge text-bg-success">&uarr; {{ row.steps }} level{{ row.steps|pluralize }}</span>
+              {% elif row.steps == 0 %}
+                <span class="badge text-bg-secondary">Not moved yet</span>
+              {% else %}
+                <span class="badge text-bg-warning">&darr; {{ row.steps|stringformat:"d"|cut:"-" }} level{{ row.steps|pluralize }}</span>
+              {% endif %}
+            </td>
+
+            <!-- Count (click to filter) -->
+            <td class="text-end pe-3">
+              <a href="{{ row.url }}" class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold">{{ row.total }}</a>
+            </td>
+
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+ 
 <!-- ===================== Applications table ===================== -->
 <div class="card">
   <div class="card-header card-header-icmr">
@@ -1258,6 +1396,108 @@ function setMsg($el, colorClass, text, hideAfterSeconds) {
         $el.data('hideTimer', timer);
     }
 }
+$(function () {
+    // Auto-hide alerts after 3 seconds
+    $(".alert.auto-dismiss").each(function () {
+      const alertEl = this;
+      setTimeout(function () {
+        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+      }, 3000);
+    });
+  });
+
+
+  $(function () {
+    const $btn = $("#exportBtn");
+    if (!$btn.length) return;
+
+    const $spinner = $("#exportSpinner");
+    const $text = $("#exportText");
+
+    function setLoading(isLoading) {
+      $btn.prop("disabled", isLoading);
+      $spinner.toggleClass("d-none", !isLoading);
+      $text.text(isLoading ? "Exporting..." : "Export CSV");
+    }
+
+    // Show a bottom-right alert that hides after 3 seconds
+    function showMessage(text, type) {
+      const $alert = $(
+        '<div class="alert alert-dismissible fade show shadow mb-2" role="alert">' +
+          '<span></span>' +
+          '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+        '</div>'
+      );
+      $alert.addClass("alert-" + (type || "danger"));
+      $alert.find("span").text(text);   // .text() keeps it safe from HTML injection
+      $("#messageArea").append($alert);
+
+      setTimeout(function () {
+        bootstrap.Alert.getOrCreateInstance($alert[0]).close();
+      }, 3000);
+    }
+
+    $btn.on("click", function () {
+      setLoading(true);
+
+      const params = $btn.closest("form").serialize();
+      const url = $btn.data("url") + "?" + params;
+
+      $.ajax({
+        url: url,
+        method: "GET",
+        xhrFields: { responseType: "blob" },
+
+        success: function (blob, status, xhr) {
+          // Safety check: make sure we really got a CSV
+          const type = xhr.getResponseHeader("Content-Type") || "";
+          if (!type.includes("text/csv")) {
+            showMessage("Export failed. Please try again.");
+            return;
+          }
+
+          let filename = "applications.csv";
+          const disposition = xhr.getResponseHeader("Content-Disposition") || "";
+          const match = disposition.match(/filename="?([^"]+)"?/);
+          if (match) filename = match[1];
+
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(link.href);
+        },
+
+        error: function (xhr) {
+          const fallback = "Export failed. Please try again.";
+          const blob = xhr.response;
+
+          // No response at all (for example, the internet is down)
+          if (!(blob instanceof Blob)) {
+            showMessage(fallback);
+            return;
+          }
+
+          // The error came back as a blob, so read it as text, then as JSON
+          blob.text()
+            .then(function (body) {
+              const data = JSON.parse(body);
+              showMessage(data.error || fallback);
+            })
+            .catch(function () {
+              showMessage(fallback);
+            });
+        },
+
+        complete: function () {
+          setLoading(false);
+        }
+      });
+    });
+  });
+
 
 </script>
 {% endblock %}
