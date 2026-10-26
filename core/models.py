@@ -118,6 +118,14 @@ class Application(TimeStampedModel):
         MMVT = "MM-VT", "Vaccines & Therapeutics"
         MMAT = "MM-AT", "Diagnostics"
 
+    class MedTechSubCategoryType(models.TextChoices):
+        MM1 = "MM-1","Device"
+        MM2 = "MM-2","Assistive"
+        MM3 = "MM-3","Diagnostics"
+        MM4 = "MM-4","Vaccine"
+        MM5 = "MM-5","Therapeutics"  
+        UNKNOWN = "unknown", "Not Known" 
+
     class RiskClass(models.TextChoices):
         CLASS_A = "A", "Class A"
         CLASS_B = "B", "Class B"
@@ -143,13 +151,14 @@ class Application(TimeStampedModel):
     class ApplicationStatus(models.TextChoices):
         IN_PROGRESS = "in_progress", "In Progress"
         CLOSED = "closed", "Closed"
-        COMPLTED="completed","Completed"
+        COMPLTED = "completed", "Completed"
         #ASSIGNED_TO_KP = "assigned_to_kp", "Assigned to KP"
-
-    reference_no = models.CharField(max_length=50, unique=True,)
+    id = models.BigAutoField(primary_key=True)
+    reference_no = models.CharField(max_length=50, unique=True)
     applicant = models.ForeignKey(Applicant, on_delete=models.PROTECT,
                                    related_name="applications")
     medtech_type = models.CharField(max_length=10, choices=MedTechType.choices)
+    medtech_subtype = models.CharField(max_length=10,choices=MedTechSubCategoryType.choices,default=MedTechSubCategoryType.UNKNOWN,blank=False,null=False)
     technology_name = models.CharField(max_length=255)
     intended_use_statement = models.TextField(blank=True)
     use_environment = models.CharField(max_length=255, blank=True)
@@ -178,45 +187,9 @@ class Application(TimeStampedModel):
     current_trl = models.ForeignKey(TRLDefinition, null=True, blank=True,
                                      on_delete=models.SET_NULL, related_name="+")
     current_trl_date = models.DateField(null=True, blank=True)
-    final_trl = models.ForeignKey(TRLDefinition, null=True, blank=True,
-                                   on_delete=models.SET_NULL, related_name="+")
-
-    final_status_notes = models.TextField(blank=True)
-    final_status_date = models.DateField(null=True, blank=True)
     closure_date = models.DateField(null=True, blank=True)
-    reason_for_closure = models.TextField(blank=True,null=True)
-    summary_Technology = models.TextField(blank=True,null=True)
-        # ---------- New fields from Excel ----------
-    allocated_to = models.CharField(max_length=100, blank=True)           # Alocation
-
-    # Test license
-    test_license_status = models.CharField(max_length=50, blank=True)     # Test License
-    tl_facilitated = models.CharField(max_length=50, blank=True)          # TL Facilitated
-    test_license_copy_link = models.CharField(max_length=500, blank=True) # Test License Copy (Link)
-
-    # Other info
-    sorting_remarks = models.CharField(max_length=255, blank=True)        # Remarks (temp for sorting)
-    financial_opportunities = models.TextField(blank=True)
-    tac_closed_in = models.CharField(max_length=50, blank=True)           # TAC No in which closed
-
-    # Knowledge partner (saved as text for now)
-    kp_assigned_screening = models.CharField(max_length=255, blank=True)
-    kp_assigned_handholding = models.CharField(max_length=255, blank=True)
-    kp_assigned = models.BooleanField(null=True, blank=True)              # 'assigned' Yes/No
-    remarks = models.TextField(blank=True)
-
-    # Follow-up call details
-    need_to_call = models.BooleanField(null=True, blank=True)
-    date_of_interaction = models.DateField(null=True, blank=True)
-    interaction_status_text = models.CharField(max_length=255, blank=True)  # if the cell is text, not a date
-    current_technology_stage = models.TextField(blank=True)
-    support_given = models.BooleanField(null=True, blank=True)
-    still_working_on_technology = models.BooleanField(null=True, blank=True)
-    requires_support = models.BooleanField(null=True, blank=True)
-    informed_can_come_back = models.BooleanField(null=True, blank=True)
-    kind_of_support_required = models.CharField(max_length=255, blank=True)
-    closure_remarks = models.TextField(blank=True)                        # Closure Reason/ Remarks (if any)
-    
+    reason_for_closure = models.TextField(blank=True, null=True)
+    summary_Technology = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ["-date_received"]
@@ -453,13 +426,3 @@ class TRLProgressLog(TimeStampedModel):
     class Meta:
         ordering = ["application", "changed_on"]
 
-
-class StatusChangeLog(TimeStampedModel):
-    application = models.ForeignKey(Application, on_delete=models.CASCADE,
-                                     related_name="status_history")
-    from_status = models.CharField(max_length=30, blank=True)
-    to_status = models.CharField(max_length=30)
-    remarks = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["-created_at"]

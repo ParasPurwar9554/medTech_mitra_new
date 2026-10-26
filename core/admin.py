@@ -1,7 +1,6 @@
 from django.contrib import admin
 from .forms import ExcelUploadForm
 from .excel_import import import_master_excel
-from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -15,7 +14,7 @@ admin.site.index_title = "Manage MedTech Mitra Dashboard"
 from .models import (
     Applicant, Application, TACMeeting, KnowledgePartner,
     KnowledgePartnerAssignment, FollowUp, TRLDefinition,
-    PartnerMilestoneTemplate, Milestone, TRLProgressLog, StatusChangeLog,
+    PartnerMilestoneTemplate, Milestone, TRLProgressLog,
     ApplicationTRLStage,AssignmentChangeLog
 )
 
@@ -97,7 +96,7 @@ class ApplicationAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "medtech_type", "risk_classification", "innovation_stage")
     search_fields = ("reference_no", "technology_name", "applicant__name")
-    autocomplete_fields = ("applicant", "initial_trl", "current_trl", "final_trl","created_by")
+    autocomplete_fields = ("applicant", "initial_trl", "current_trl","created_by")
     date_hierarchy = "date_received"
     inlines = [TACMeetingInline, ApplicationTRLStageInline, TRLProgressLogInline]
 
@@ -121,16 +120,6 @@ class ApplicationAdmin(admin.ModelAdmin):
     def get_ordering(self, request):
         return [F("date_received").desc(nulls_last=True), "-id"]
 
-    def save_model(self, request, obj, form, change):
-        """Log status transitions for audit purposes when changed via admin."""
-        if change:
-            old = Application.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
-            if old and old != obj.status:
-                StatusChangeLog.objects.create(
-                    application=obj, from_status=old, to_status=obj.status,
-                    created_by=request.user,
-                )
-        super().save_model(request, obj, form, change)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -246,13 +235,6 @@ class TRLProgressLogAdmin(admin.ModelAdmin):
     list_display = ("application", "trl", "changed_on")
     search_fields = ("application__reference_no",)
 
-@admin.register(StatusChangeLog)
-class StatusChangeLogAdmin(admin.ModelAdmin):
-    list_display = ("application", "from_status", "to_status", "created_at", "created_by")
-    readonly_fields = [f.name for f in StatusChangeLog._meta.fields]
-
-    def has_add_permission(self, request):
-        return False  # audit log: system-generated only
 
 @admin.register(AssignmentChangeLog)
 class AssignmentChangeLogAdmin(admin.ModelAdmin):

@@ -72,8 +72,7 @@ def overview(request):
         "partner_data": services.applications_by_knowledge_partner(),
         "trl_data": trl_data,
         "trl_levels": [row["level"] for row in trl_data],
-        "trl_level_choices": range(1, 10),                     # NEW: for From/To TRL dropdowns
-        #"trl_movement": services.get_trl_movement(request),    # NEW: movement table
+        "trl_level_choices": range(1, 10),                     
         "status_choices": Application.ApplicationStatus.choices,
         "medtech_type_choices": Application.MedTechType.choices,
         "risk_choices": Application.RiskClass.choices,
@@ -93,43 +92,21 @@ def overview(request):
 @login_required
 def application_detail(request, pk):
     application = get_object_or_404(
-        Application.objects.select_related("applicant", "current_trl", "initial_trl", "final_trl")
+        Application.objects.select_related("applicant", "current_trl", "initial_trl")
        .prefetch_related(
     "tac_meetings",
     "trl_stages__partner_assignments__partner",
     "trl_stages__partner_assignments__follow_ups",
     "trl_stages__partner_assignments__milestones",
     "trl_history__trl",
-    "status_history",
 ),
         pk=pk,
     )
     context = {
         "application": application,
-        #"columns": services.build_progress_tree(application),
         "trl_tracker": services.trlprogresstracker(application.reference_no),
     }
     return render(request, "dashboard/application_detail.html", context)
-
-
-@login_required
-def chart_data_api(request, chart_name):
-    """Lightweight JSON endpoint the frontend re-polls when filters change,
-    without a full page reload (used by the dashboard's AJAX filter bar)."""
-    qs = services.apply_dashboard_filters(request)
-    dispatch = {
-        #"status": services.applications_by_status,
-        "medtech_type": services.applications_by_medtech_type,
-        "risk": services.applications_by_risk_class,
-        "trl": lambda _qs=None: services.trl_distribution(),
-        "partner": lambda _qs=None: services.applications_by_knowledge_partner(),
-        "kpis": services.kpi_summary,
-    }
-    fn = dispatch.get(chart_name)
-    if not fn:
-        return JsonResponse({"error": "unknown chart"}, status=404)
-    return JsonResponse({"data": fn(qs)})
-
 
 @require_GET
 def trl_detail_ajax(request):
@@ -205,34 +182,34 @@ def trl_detail_ajax(request):
     })
 
 
-@login_required
-def trl_drilldown(request, trl_level):
-    """Called when a pie slice is clicked. Returns total applications for that
-    TRL level, split by knowledge partner and by milestone status."""
+# @login_required
+# def trl_drilldown(request, trl_level):
+#     """Called when a pie slice is clicked. Returns total applications for that
+#     TRL level, split by knowledge partner and by milestone status."""
 
-    partner_qs = (
-        KnowledgePartnerAssignment.objects
-        .filter(trl_stage__trl__level=trl_level)
-        .values('partner__short_code')
-        .annotate(value=Count('trl_stage__application', distinct=True))
-        .order_by('partner__short_code')
-    )
-    partner_data = [{"label": r["partner__short_code"], "value": r["value"]} for r in partner_qs]
+#     partner_qs = (
+#         KnowledgePartnerAssignment.objects
+#         .filter(trl_stage__trl__level=trl_level)
+#         .values('partner__short_code')
+#         .annotate(value=Count('trl_stage__application', distinct=True))
+#         .order_by('partner__short_code')
+#     )
+#     partner_data = [{"label": r["partner__short_code"], "value": r["value"]} for r in partner_qs]
 
-    milestone_qs = (
-        Milestone.objects
-        .filter(assignment__trl_stage__trl__level=trl_level)
-        .values('status')
-        .annotate(value=Count('assignment__trl_stage__application', distinct=True))
-        .order_by('status')
-    )
-    status_labels = {"open": "Open", "in_progress": "In Progress", "closed": "Completed"}
-    milestone_data = [
-        {"label": status_labels.get(r["status"], r["status"]), "value": r["value"]}
-        for r in milestone_qs
-    ]
+#     milestone_qs = (
+#         Milestone.objects
+#         .filter(assignment__trl_stage__trl__level=trl_level)
+#         .values('status')
+#         .annotate(value=Count('assignment__trl_stage__application', distinct=True))
+#         .order_by('status')
+#     )
+#     status_labels = {"open": "Open", "in_progress": "In Progress", "closed": "Completed"}
+#     milestone_data = [
+#         {"label": status_labels.get(r["status"], r["status"]), "value": r["value"]}
+#         for r in milestone_qs
+#     ]
 
-    return JsonResponse({"partner_data": partner_data, "milestone_data": milestone_data})
+#     return JsonResponse({"partner_data": partner_data, "milestone_data": milestone_data})
 
 
 @require_GET
@@ -280,12 +257,10 @@ def assign_trl_partner_ajax(request):
     initial_trl_id = data.get("initial_trl_id")
     current_trl_id = data.get("current_trl_id")
 
-    # CHANGED: check application on its own
     application = Application.objects.filter(id=application_id).first()
     if not application:
         return JsonResponse({"error": "Application not found"}, status=404)
 
-    # CHANGED: TRL Level is optional
     trl = None
     if trl_id:
         trl = TRLDefinition.objects.filter(id=trl_id).first()

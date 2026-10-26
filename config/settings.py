@@ -166,12 +166,22 @@ LOGGING = {
             "maxBytes": 10 * 1024 * 1024,
             "backupCount": 5,
             "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "login_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "logs" / "login.log",
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+            "encoding": "utf-8",
         },
     },
     "root": {"handlers": ["console"], "level": "INFO"},
     "loggers": {
-        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
-        "core": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django.request": {"handlers": ["console", "file"], "level": "ERROR", "propagate": False},
+        "core": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "login": {"handlers": ["console", "login_file"], "level": "INFO", "propagate": False},
     },
 }
 (BASE_DIR / "logs").mkdir(exist_ok=True)

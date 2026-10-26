@@ -187,10 +187,10 @@
 </div>
 
 <!-- ===================== TRL Movement ===================== -->
-{% if is_admin and trl_movement %}
+<!-- {% if is_admin and trl_movement %}
 <div class="card mb-4">
 
-  <!-- Header -->
+  
   <div class="card-header card-header-icmr d-flex justify-content-between align-items-center">
     <span>TRL Movement</span>
     {% if active_filters.trl_from or active_filters.trl_to %}
@@ -200,7 +200,7 @@
     {% endif %}
   </div>
 
-  <!-- Summary strip -->
+  
   <div class="row g-0 text-center border-bottom">
     <div class="col-4 py-2 border-end">
       <div class="fs-5 fw-semibold">{{ movement_summary.total }}</div>
@@ -216,7 +216,6 @@
     </div>
   </div>
 
-  <!-- Table -->
   <div class="card-body p-0" style="max-height:320px; overflow-y:auto;">
     <table class="table table-sm table-hover align-middle mb-0">
       <thead class="table-light small" style="position:sticky; top:0; z-index:1;">
@@ -231,14 +230,12 @@
         {% for row in trl_movement %}
           <tr>
 
-            <!-- TRL 2 → TRL 6 -->
             <td class="ps-3 fw-semibold small text-nowrap">
               TRL {{ row.from_level }}
               <span class="text-muted mx-1">&rarr;</span>
               TRL {{ row.to_level }}
             </td>
 
-            <!-- Mini track: 9 small bars, coloured from start to current level -->
             <td>
               <div class="d-flex gap-1" title="TRL {{ row.from_level }} to TRL {{ row.to_level }}">
                 {% for level in trl_level_choices %}
@@ -255,7 +252,6 @@
               </div>
             </td>
 
-            <!-- Change badge -->
             <td>
               {% if row.steps > 0 %}
                 <span class="badge text-bg-success">&uarr; {{ row.steps }} level{{ row.steps|pluralize }}</span>
@@ -266,7 +262,6 @@
               {% endif %}
             </td>
 
-            <!-- Count (click to filter) -->
             <td class="text-end pe-3">
               <a href="{{ row.url }}" class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold">{{ row.total }}</a>
             </td>
@@ -277,7 +272,7 @@
     </table>
   </div>
 </div>
-{% endif %}
+{% endif %} -->
 
  
 <!-- ===================== Applications table ===================== -->

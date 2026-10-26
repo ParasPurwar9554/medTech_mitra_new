@@ -1,16 +1,23 @@
 """
-Import data from the MedTech Mitra master Excel file (Sheet1, 56 columns).
+Import data from the MedTech Mitra dashboard Excel template (Sheet1, 29 columns).
+
+Columns in the sheet (* = required):
+  Reference No *, Date Received, Applicant Name *, Innovator Name,
+  Affiliation Type, Affiliation Name, Email, Contact Number, Address,
+  MedTech Type *, Technology Name *, Intended Use Statement, Use Environment,
+  Target Population, Area of Application, Risk Classification,
+  Device Category, Innovation Stage, Support Type Requested, Support Category,
+  Test License Received, Query Text, Status, Initial TRL Level,
+  Initial TRL Date, Current TRL Level, Current TRL Date, Closure Date,
+  Reason for Closure
 
 What gets saved:
-  - Applicant        (name, innovator, type, company, email, phone, address)
-  - Application      (all application, test-license, closure, KP and
-                      follow-up-call columns)
-  - TACMeeting       (TAC ref no, meeting date, first response, response
-                      date, final response, action taken)
-  - StatusChangeLog  (when the status changes on re-import)
+  - Applicant        (name, innovator, affiliation, email, phone, address)
+  - Application      (all other columns; TRL levels are linked to TRLDefinition)
+  - TRLProgressLog   (when the current TRL is set or changes)
 
-Column headers are normalised (lowercased, punctuation -> underscore), so
-"Date of Closure" becomes "date_of_closure" etc.
+Column headers are normalised (lowercased, punctuation -> underscore,
+the "*" is dropped), so "Reference No *" becomes "reference_no".
 """
 import datetime
 import re
@@ -18,7 +25,16 @@ import re
 import pandas as pd
 from django.db import transaction
 
-from core.models import Applicant, Application, StatusChangeLog, TACMeeting
+from core.models import (
+    Applicant,
+    Application,
+    TRLDefinition,
+    TRLProgressLog,
+)
+
+
+# Columns that MUST be in the file, or we stop the import
+REQUIRED_COLUMNS = ["reference_no", "applicant_name", "medtech_type", "technology_name","medtech_subtype"]
 
 
 # ---------------------------------------------------------------------------
@@ -61,21 +77,8 @@ def _clean_str(value):
 
 
 def _simple(value):
-    """Lowercase + remove ALL spaces/newlines. Used only for matching."""
-    return re.sub(r"\s+", "", _clean_str(value).lower())
-
-
-def _get(row, *names):
-    """
-    Return the first column that exists and has a value.
-    Useful when a column was renamed in a newer sheet, e.g.
-    'Email Id' (old) vs 'Email Id (RED-Email Failed)' (new).
-    """
-    for name in names:
-        value = row.get(name)
-        if not _is_empty(value) and _clean_str(value) != "":
-            return value
-    return None
+    """Lowercase + keep only letters/numbers. Used only for matching."""
+    return re.sub(r"[^a-z0-9]", "", _clean_str(value).lower())
 
 
 def _first_email(value):
@@ -91,13 +94,19 @@ def _phone(value):
 
 
 def _yes_no(value):
-    """'Yes' -> True, 'No' / 'No ' / 'Np' -> False, blank -> None."""
+    """'Yes' / 'Y' / 'True' -> True, 'No' / 'N' / 'False' -> False, blank -> None."""
     value = _simple(value)
-    if value.startswith("y"):
+    if value.startswith("y") or value in ("true", "1"):
         return True
-    if value.startswith("n"):
+    if value.startswith("n") or value in ("false", "0"):
         return False
     return None
+
+
+def _trl_level(value):
+    """'TRL 4' / '4' / 4.0 -> 4. Blank or not a number -> None."""
+    match = re.search(r"\d+", _clean_str(value))
+    return int(match.group()) if match else None
 
 
 # ---------------------------------------------------------------------------
@@ -106,26 +115,24 @@ def _yes_no(value):
 
 def _parse_date(value):
     """
-    The sheet has these kinds of dates:
-      1. Text with slash:  '26/12/2023', '13/3/2024', '31/1//2024'
-      2. Text with dot:    '16.02.2024', '30.09.26', '1.10.26'
-         (typos like '12:08.2025' and '26.02,2026' are also fixed)
-      3. Two dates in one cell: '22/09/2026; 30/09/2026' or
-         '10.02.2026, 26.02.2026' -> we take the LAST (latest) one
-      4. Real Excel dates: Excel wrongly read '03/02/2024' as 2 March 2024
-         (month and day swapped). So we swap them back -> 3 Feb 2024.
+    The template uses real Excel date cells, so most dates come in as
+    datetime objects and are used AS THEY ARE (no day/month swap).
+
+    If someone types a date as text instead, we still read it:
+      '26/12/2023', '16.02.2024', '30.09.26', '22/09/2026; 30/09/2026'
+      (when there are two dates in one cell we take the LAST one)
     Returns None if it is not a date.
     """
     if _is_empty(value):
         return None
 
-    # Case 4: real Excel date cell -> swap day and month back
-    if isinstance(value, (datetime.datetime, datetime.date, pd.Timestamp)):
-        if value.day <= 12:
-            return datetime.date(value.year, value.day, value.month)
-        return datetime.date(value.year, value.month, value.day)
+    # Real Excel date cell
+    if isinstance(value, (datetime.datetime, pd.Timestamp)):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
 
-    # Find every "day ? month ? year" piece in the text, keep the LAST one
+    # Text date: find every "day ? month ? year" piece, keep the LAST one
     found = re.findall(r"\d{1,2}\D{1,2}\d{1,2}\D{1,2}\d{2,4}", _clean_str(value))
     if not found:
         return None
@@ -144,6 +151,21 @@ def _parse_date(value):
 # STEP 3: Map sheet text -> model choice values
 # ---------------------------------------------------------------------------
 
+def _match_choice(choices, value):
+    """
+    Try to match the cell to a Django choice by its value OR its label.
+    e.g. for MedTechType, 'MM-DD', 'mmdd' or the label text all match.
+    Returns the choice value, or None if nothing matches.
+    """
+    cell = _simple(value)
+    if not cell:
+        return None
+    for choice_value, label in choices.choices:
+        if cell in (_simple(choice_value), _simple(label)):
+            return choice_value
+    return None
+
+
 def _map_affiliation_type(value):
     if _simple(value) == "individual":
         return "individual"
@@ -151,13 +173,18 @@ def _map_affiliation_type(value):
 
 
 def _map_risk_class(value):
-    match = re.search(r"class([a-d])", _simple(value))
+    # Accepts 'Class A', 'Class-B', or just 'C'
+    value = _simple(value)
+    match = re.search(r"class([a-d])", value) or re.fullmatch(r"([a-d])", value)
     if match:
         return match.group(1).upper()
     return Application.RiskClass.UNKNOWN
 
 
 def _map_device_category(value):
+    found = _match_choice(Application.DeviceCategory, value)
+    if found:
+        return found
     # Check "investigational" FIRST, because that text also has "predicate"
     value = _simple(value)
     if "investigational" in value:
@@ -168,6 +195,9 @@ def _map_device_category(value):
 
 
 def _map_innovation_stage(value):
+    found = _match_choice(Application.InnovationStage, value)
+    if found:
+        return found
     S = Application.InnovationStage
     value = _simple(value)
     if "conceptdevelopment" in value:
@@ -184,28 +214,75 @@ def _map_innovation_stage(value):
 
 
 def _map_medtech_type(value):
-    # "Medical Device" and "In-vitro Diagnostic" both -> MM-DD
+    """
+    Model choices:
+      MM-DD = Device & Assistive Technologies
+      MM-VT = Vaccines & Therapeutics
+      MM-AT = Diagnostics
+    """
+    found = _match_choice(Application.MedTechType, value)
+    if found:
+        return found
     value = _simple(value)
     if "vaccine" in value or "therapeutic" in value:
         return Application.MedTechType.MMVT
-    if "assistive" in value or "assitive" in value:
+    if "diagnostic" in value or "invitro" in value or "ivd" in value:
         return Application.MedTechType.MMAT
-    return Application.MedTechType.MMDD
+    return Application.MedTechType.MMDD  # medical device / assistive / unknown
+
+
+def _map_support_category(value):
+    """'Advisory' -> advisory, 'Handholding' / 'Hand holding' -> handholding."""
+    found = _match_choice(Application.SupportCategory, value)
+    if found:
+        return found
+    value = _simple(value)
+    if "advis" in value:
+        return Application.SupportCategory.ADVISORY
+    if "hand" in value:
+        return Application.SupportCategory.HANDHOLDING
+    return ""
+
+
+def _find_trl(level, medtech_type):
+    """
+    Initial/Current TRL are links to TRLDefinition (level + medtech type).
+    1. Try the row for this level AND this medtech type.
+    2. If not found, try a row with this level and a BLANK medtech type
+       (a TRL that applies to all types).
+    Returns the TRLDefinition, or None (we never use another type's TRL).
+    """
+    if level is None:
+        return None
+    trl = TRLDefinition.objects.filter(level=level, medtech_type=medtech_type).first()
+    if trl is None:
+        trl = TRLDefinition.objects.filter(level=level, medtech_type="").first()
+    return trl
 
 
 def _decide_status(row, existing, closure_date):
     """
-    'Final Status' = Closed  (or a closure date)  -> closed
-    'Status'       = completed                    -> completed
+    'Status' column matches a status choice  -> use it
+    a 'Closure Date' is filled               -> closed
     otherwise keep what staff already set in the app, or in_progress for new.
     """
     S = Application.ApplicationStatus
-    if _simple(row.get("final_status")) == "closed" or closure_date:
+    if closure_date:
         return S.CLOSED
-    if _simple(row.get("status")) == "completed":
+
+    found = _match_choice(S, row.get("status"))
+    if found:
+        return found
+
+    # Common spellings that may not match the choice labels exactly
+    text = _simple(row.get("status"))
+    if text in ("completed", "complete", "done"):
         return S.COMPLTED
-    if _simple(row.get("status")) == "closed":
+    if text == "closed":
         return S.CLOSED
+    if text in ("inprogress", "ongoing", "open"):
+        return S.IN_PROGRESS
+
     if existing:
         return existing.status
     return S.IN_PROGRESS
@@ -218,10 +295,10 @@ def _decide_status(row, existing, closure_date):
 def _get_or_update_applicant(row, user=None):
     name = _clean_str(row.get("applicant_name")) or "Unknown Applicant"
     data = {
-        "innovator_name": _clean_str(row.get("innovators_name")),
-        "affiliation_type": _map_affiliation_type(row.get("applicant_type")),
-        "affiliation_name": _clean_str(row.get("company_institute_name")),
-        "email": _first_email(_get(row, "email_id_red_email_failed", "email_id")),
+        "innovator_name": _clean_str(row.get("innovator_name")),
+        "affiliation_type": _map_affiliation_type(row.get("affiliation_type")),
+        "affiliation_name": _clean_str(row.get("affiliation_name")),
+        "email": _first_email(row.get("email")),
         "contact_number": _phone(row.get("contact_number")),
         "address": _clean_str(row.get("address")),
     }
@@ -237,73 +314,70 @@ def _get_or_update_applicant(row, user=None):
     applicant.save()
     return applicant
 
+def _map_medtech_subtype(value):
+    found = _match_choice(Application.MedTechSubCategoryType, value)
+    if found:
+        return found
+    raise ValueError(
+        f"Invalid MedTech Sub Category: '{value}'. "
+        f"Allowed: MM-1, MM-2, MM-3, MM-4, MM-5, Device, Assistive, "
+        f"Diagnostics, Vaccine, Therapeutics, Not Known"
+    )
+
 
 # ---------------------------------------------------------------------------
 # STEP 5: Build all Application values from one row
 # ---------------------------------------------------------------------------
 
-def _application_values(row, applicant, status, closure_date):
-    # 'Date of Interaction/Status' can be a date OR some text
-    interaction_raw = row.get("date_of_interaction_status")
-    interaction_date = _parse_date(interaction_raw)
+def _application_values(row, applicant, status, closure_date, warnings):
+    medtech_type = _map_medtech_type(row.get("medtech_type"))
+    medtech_subtype = _map_medtech_subtype(row.get("medtech_subtype"))
+    print("++++++++++: ",medtech_subtype)
+
+    # --- TRL: turn the level number into a TRLDefinition row ---
+    initial_level = _trl_level(row.get("initial_trl_level"))
+    current_level = _trl_level(row.get("current_trl_level"))
+    initial_trl = _find_trl(initial_level, medtech_type)
+    current_trl = _find_trl(current_level, medtech_type)
+    if initial_level and initial_trl is None:
+        warnings.append(f"Initial TRL level {initial_level} not found in TRL master, left blank.")
+    if current_level and current_trl is None:
+        warnings.append(f"Current TRL level {current_level} not found in TRL master, left blank.")
 
     values = {
         "applicant": applicant,
-        "allocated_to": _clean_str(row.get("alocation")),
+        "date_received": _parse_date(row.get("date_received")),
 
         # --- Technology details ---
-        "medtech_type": _map_medtech_type(row.get("medtech_type")),
-        "technology_name": _clean_str(row.get("name_of_the_technology")),
+        "medtech_type": medtech_type,
+        "medtech_subtype":medtech_subtype,
+        "technology_name": _clean_str(row.get("technology_name")),
         "intended_use_statement": _clean_str(row.get("intended_use_statement")),
         "use_environment": _clean_str(row.get("use_environment")).replace("_", "/"),
         "target_population": _clean_str(row.get("target_population")),
         "area_of_application": _clean_str(row.get("area_of_application")),
-        "risk_classification": _map_risk_class(
-            row.get("risk_classification_of_medical_device_ivds")),
-        "device_category": _map_device_category(
-            row.get("type_of_medical_device_diagnostic")),
-        "summary_Technology": _clean_str(row.get("summary_of_the_technology")),
-        "innovation_stage": _map_innovation_stage(row.get("stage_of_your_innovation")),
-        "support_type_requested": _clean_str(row.get("type_of_support_handholding_needed")),
+        "risk_classification": _map_risk_class(row.get("risk_classification")),
+        "device_category": _map_device_category(row.get("device_category")),
+        "innovation_stage": _map_innovation_stage(row.get("innovation_stage")),
 
-        # --- Test license ---
-        "test_license_received": _yes_no(row.get("test_license_received_yes_no")),
-        "test_license_status": _clean_str(row.get("test_license")),
-        "tl_facilitated": _clean_str(row.get("tl_facilitated_to_be_updated_by_aarti_sahu")),
-        "test_license_copy_link": _clean_str(row.get("test_license_copy_link")),
+        # --- Support ---
+        "support_type_requested": _clean_str(row.get("support_type_requested")),
+        "support_category": _map_support_category(row.get("support_category")),
 
-        # --- Other info ---
-        "sorting_remarks": _clean_str(row.get("remarks_temp_for_sorting")),
-        "financial_opportunities": _clean_str(row.get("financial_opportunities")),
-        "query_text": _clean_str(row.get("query")),
-        "date_received": _parse_date(row.get("date_of_application_reciept")),
+        # --- Test license / query ---
+        "test_license_received": _yes_no(row.get("test_license_received")),
+        "query_text": _clean_str(row.get("query_text")),
+
+        # --- TRL (Technology Readiness Level) ---
+        "initial_trl": initial_trl,
+        "initial_trl_date": _parse_date(row.get("initial_trl_date")),
+        "current_trl": current_trl,
+        "current_trl_date": _parse_date(row.get("current_trl_date")),
 
         # --- Status / closure ---
         "status": status,
         "closure_date": closure_date,
-        "tac_closed_in": _clean_str(row.get("tac_no_in_which_the_application_was_closed")),
-        "reason_for_closure": _clean_str(
-            _get(row, "remarks_reason", "recorded_reason_for_closure")),
-
-        # --- Knowledge partner (stored as text for now) ---
-        "kp_assigned_screening": _clean_str(row.get("kp_assigned_for_initial_screening_advisory")),
-        "kp_assigned_handholding": _clean_str(row.get("kp_assigned_for_handholding")),
-        "remarks": _clean_str(row.get("remarks")),
-
-        # --- Follow-up call ---
-        "need_to_call": _yes_no(row.get("need_to_call_yes_no")),
-        "date_of_interaction": interaction_date,
-        "interaction_status_text": "" if interaction_date else _clean_str(interaction_raw),
-        "current_technology_stage": _clean_str(row.get("current_stage_of_your_technology")),
-        "support_given": _yes_no(row.get("whether_the_asked_support_is_given_to_you_yes_no")),
-        "still_working_on_technology": _yes_no(
-            row.get("does_the_innovator_still_working_on_the_technology_yes_no")),
-        "requires_support": _yes_no(
-            row.get("whether_they_require_any_suport_from_medtech_mitra_yes_no")),
-        "informed_can_come_back": _yes_no(row.get(
-            "infomed_that_they_can_come_back_and_seek_help_at_any_stage_and_since_you_do_not_need_help_right_now")),
-        "kind_of_support_required": _clean_str(row.get("kind_of_support_required")),
-        "closure_remarks": _clean_str(row.get("closure_reason_remarks_if_any")),
+        "reason_for_closure": _clean_str(row.get("reason_for_closure")),
     }
 
     # Closure reason also goes to final_status_notes / final_status_date
@@ -315,43 +389,7 @@ def _application_values(row, applicant, status, closure_date):
 
 
 # ---------------------------------------------------------------------------
-# STEP 6: TAC meeting (one per application + TAC ref no)
-# ---------------------------------------------------------------------------
-
-def _save_tac_meeting(row, application, user=None):
-    first_resp_raw = row.get("first_responce_meeting_slot_additional_info")
-    first_resp_date = _parse_date(first_resp_raw)
-
-    data = {
-        "meeting_date": _parse_date(row.get("tac_meeting_date")),
-        "first_response_date": first_resp_date,
-        # if 'First Response' is text (not a date) keep it as outcome
-        "first_meeting_outcome": "" if first_resp_date else _clean_str(first_resp_raw),
-        "response_emailed_date": _parse_date(row.get("date_of_response")),
-        "final_tac_response": _clean_str(row.get("final_response")),
-        "action_taken": _clean_str(row.get("action_taken")),
-    }
-    ref_no = _clean_str(row.get("tac_meeting_ref_no"))
-
-    # Nothing about TAC in this row -> skip
-    if not ref_no and not any(data.values()):
-        return
-
-    tac = TACMeeting.objects.filter(application=application, meeting_ref_no=ref_no).first()
-    if tac is None:
-        TACMeeting.objects.create(
-            application=application, meeting_ref_no=ref_no, created_by=user, **data
-        )
-        return
-
-    for field, value in data.items():
-        if value not in ("", None):
-            setattr(tac, field, value)
-    tac.save()
-
-
-# ---------------------------------------------------------------------------
-# STEP 7: Main import function
+# STEP 6: Main import function
 # ---------------------------------------------------------------------------
 
 def import_master_excel(file_obj, user=None):
@@ -362,13 +400,16 @@ def import_master_excel(file_obj, user=None):
     """
     df = pd.read_excel(file_obj, sheet_name=0)
     df.columns = [_normalise(c) for c in df.columns]
+    #print("df Columns: ", df.columns)
     df = df.dropna(how="all")
+    #print("df Dropna: ", df)
 
-    if "application_reference_no" not in df.columns:
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing:
         return {
             "created": 0,
             "updated": 0,
-            "errors": ["Column 'Application reference no.' not found. Wrong file?"],
+            "errors": [f"Columns not found: {', '.join(missing)}. Wrong file?"],
         }
 
     created_count = 0
@@ -379,18 +420,31 @@ def import_master_excel(file_obj, user=None):
         excel_row_num = i + 2  # header is row 1
         try:
             with transaction.atomic():
-                reference_no = _clean_str(row.get("application_reference_no"))
+                reference_no = _clean_str(row.get("reference_no"))
                 if not reference_no:
-                    errors.append(f"Row {excel_row_num}: missing reference no, skipped.")
+                    errors.append(f"Row {excel_row_num}: missing Reference No, skipped.")
+                    continue
+                if not _clean_str(row.get("technology_name")):
+                    errors.append(f"Row {excel_row_num}: missing Technology Name, skipped.")
                     continue
 
                 applicant = _get_or_update_applicant(row, user)
 
                 existing = Application.objects.filter(reference_no=reference_no).first()
-                closure_date = _parse_date(row.get("date_of_closure"))
+                closure_date = _parse_date(row.get("closure_date"))
                 status = _decide_status(row, existing, closure_date)
 
-                defaults = _application_values(row, applicant, status, closure_date)
+                warnings = []
+                defaults = _application_values(
+                    row, applicant, status, closure_date, warnings)
+                for w in warnings:
+                    errors.append(f"Row {excel_row_num}: {w}")
+
+                # Blank TRL cell -> keep the TRL already saved in the app
+                old_trl_id = existing.current_trl_id if existing else None
+                for field in ("initial_trl", "current_trl"):
+                    if defaults[field] is None and existing:
+                        defaults.pop(field)
 
                 obj, was_created = Application.objects.update_or_create(
                     reference_no=reference_no,
@@ -404,16 +458,16 @@ def import_master_excel(file_obj, user=None):
                         obj.save(update_fields=["created_by"])
                 else:
                     updated_count += 1
-                    if existing.status != status:
-                        StatusChangeLog.objects.create(
-                            application=obj,
-                            from_status=existing.status,
-                            to_status=status,
-                            remarks="Changed by Excel import",
-                            created_by=user,
-                        )
 
-                _save_tac_meeting(row, obj, user)
+                # Save TRL history when the current TRL is new or changed
+                if obj.current_trl_id and obj.current_trl_id != old_trl_id:
+                    TRLProgressLog.objects.create(
+                        application=obj,
+                        trl=obj.current_trl,
+                        changed_on=obj.current_trl_date or datetime.date.today(),
+                        remarks="Set by Excel import",
+                        created_by=user,
+                    )
 
         except Exception as e:
             errors.append(f"Row {excel_row_num}: {e}")

@@ -296,9 +296,6 @@ class Command(BaseCommand):
             "initial_trl_date": col("initial trl date"),
             "current_trl": col("current trl"),
             "current_trl_date": col("current trl date"),
-            "final_trl": col("final trl"),
-            "final_status": col("final status of application"),
-            "final_status_date": col("final status date"),
         }
 
         def get(row, key):
@@ -373,9 +370,6 @@ class Command(BaseCommand):
                     initial_trl_date=parse_date(get(row, "initial_trl_date")),
                     current_trl=trl_from_text(get(row, "current_trl")) or trl_from_text(get(row, "initial_trl")),
                     current_trl_date=parse_date(get(row, "current_trl_date")),
-                    final_trl=trl_from_text(get(row, "final_trl")),
-                    final_status_notes=final_status_text,
-                    final_status_date=parse_date(get(row, "final_status_date")),
                     closure_date=closure_date,
                 ),
             )

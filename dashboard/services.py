@@ -10,7 +10,6 @@ from django.db.models.functions import TruncMonth
 from datetime import date
 from django.utils.dateparse import parse_date
 from django.db.models import Q, Count
-
 from core.models import Application, KnowledgePartner, TRLDefinition,KnowledgePartnerAssignment,Milestone
 
 def _to_date(text):
@@ -66,18 +65,6 @@ def applications_by_knowledge_partner():
         .order_by("-count")
     )
     return [{"label": r["short_code"], "value": r["count"]} for r in rows]
-
-
-def trl_distribution():
-    """How many applications currently sit at each TRL level — the core
-    'technology maturity funnel' chart for a MedTech program dashboard."""
-    rows = (
-        Application.objects.filter(current_trl__isnull=False)
-        .values("current_trl__level", "current_trl__name")
-        .annotate(count=Count("id"))
-        .order_by("current_trl__level")
-    )
-    return [{"label": r["current_trl__name"] or f"TRL-{r['current_trl__level']}", "value": r["count"]} for r in rows]
 
 
 def get_base_queryset(user):
@@ -171,51 +158,6 @@ def get_trl_movement(request):
         row["url"] = "?" + params.urlencode()
 
     return rows
-
-def build_progress_tree(application):
-    trl_logs = sorted(application.trl_history.all(), key=lambda log: log.changed_on)
-    assignments = sorted(
-        KnowledgePartnerAssignment.objects.filter(trl_stage__application=application),
-        key=lambda a: a.date_allotted or a.created_at.date(),
-    )
-
-    def milestones_for(a):
-        return sorted(a.milestones.all(), key=lambda m: m.date_achieved or date.max)
-
-    columns = []
-    used_ids = set()
-
-    for i, log in enumerate(trl_logs):
-        next_date = trl_logs[i + 1].changed_on if i + 1 < len(trl_logs) else None
-        cycle_assignments = [
-            a for a in assignments
-            if (a.date_allotted or a.created_at.date()) >= log.changed_on
-            and (next_date is None or (a.date_allotted or a.created_at.date()) < next_date)
-        ]
-        used_ids.update(a.id for a in cycle_assignments)
-        columns.append({
-            "trl": log.trl,
-            "done": True,
-            "current": application.current_trl_id == log.trl_id and i == len(trl_logs) - 1,
-            "assignments": [
-                {"assignment": a, "done": a.status == "completed", "milestones": milestones_for(a)}
-                for a in cycle_assignments
-            ],
-        })
-
-    if application.current_trl and (not trl_logs or trl_logs[-1].trl_id != application.current_trl_id):
-        remaining = [a for a in assignments if a.id not in used_ids]
-        columns.append({
-            "trl": application.current_trl,
-            "done": True,
-            "current": True,
-            "assignments": [
-                {"assignment": a, "done": a.status == "completed", "milestones": milestones_for(a)}
-                for a in remaining
-            ],
-        })
-
-    return columns
 
 
 def trlprogresstracker(refnumber):
