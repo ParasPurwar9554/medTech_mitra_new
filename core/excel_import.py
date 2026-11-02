@@ -34,7 +34,27 @@ from core.models import (
 
 
 # Columns that MUST be in the file, or we stop the import
-REQUIRED_COLUMNS = ["reference_no", "applicant_name", "medtech_type", "technology_name","medtech_subtype"]
+REQUIRED_COLUMNS = ["reference_no"]
+
+
+# Other header names people use for the same column.
+# Left = header in the sheet (after normalising), right = name the code uses.
+COLUMN_ALIASES = {
+    "applicant_type": "affiliation_type",
+    "innovators_name": "innovator_name",
+    "company_institute_name": "affiliation_name",
+    "email_id": "email",
+    "name_of_the_technology": "technology_name",
+    "risk_classification_of_medical_device_ivds": "risk_classification",
+    "type_of_medical_device_diagnostic": "device_category",
+    "stage_of_your_innovation": "innovation_stage",
+    "type_of_support_handholding_needed": "support_type_requested",
+    "test_license_received_yes_no": "test_license_received",
+    "query": "query_text",
+    "date_of_application_reciept": "date_received",
+    "date_of_closure": "closure_date",
+    "closure_reason_remarks_if_any": "reason_for_closure",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -314,15 +334,33 @@ def _get_or_update_applicant(row, user=None):
     applicant.save()
     return applicant
 
-def _map_medtech_subtype(value):
-    found = _match_choice(Application.MedTechSubCategoryType, value)
+def _map_medtech_subtype(value, medtech_type_text=""):
+    """
+    Sub category. If the cell is blank or unclear, guess it from the
+    'MedTech Type' text (e.g. 'Medical Device' -> Device,
+    'In-vitro Diagnostic' -> Diagnostics). Last resort: Not Known.
+    """
+    choices = Application.MedTechSubCategoryType
+    found = _match_choice(choices, value)
     if found:
         return found
-    raise ValueError(
-        f"Invalid MedTech Sub Category: '{value}'. "
-        f"Allowed: MM-1, MM-2, MM-3, MM-4, MM-5, Device, Assistive, "
-        f"Diagnostics, Vaccine, Therapeutics, Not Known"
-    )
+
+    text = _simple(value) or _simple(medtech_type_text)
+    for word, label in (
+        ("vaccine", "Vaccine"),
+        ("therapeutic", "Therapeutics"),
+        ("diagnostic", "Diagnostics"),
+        ("invitro", "Diagnostics"),
+        ("ivd", "Diagnostics"),
+        ("assistive", "Assistive"),
+        ("device", "Device"),
+    ):
+        if word in text:
+            found = _match_choice(choices, label)
+            if found:
+                return found
+
+    return _match_choice(choices, "Not Known")
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +369,8 @@ def _map_medtech_subtype(value):
 
 def _application_values(row, applicant, status, closure_date, warnings):
     medtech_type = _map_medtech_type(row.get("medtech_type"))
-    medtech_subtype = _map_medtech_subtype(row.get("medtech_subtype"))
-    print("++++++++++: ",medtech_subtype)
+    medtech_subtype = _map_medtech_subtype(
+        row.get("medtech_subtype"), row.get("medtech_type"))
 
     # --- TRL: turn the level number into a TRLDefinition row ---
     initial_level = _trl_level(row.get("initial_trl_level"))
@@ -400,6 +438,12 @@ def import_master_excel(file_obj, user=None):
     """
     df = pd.read_excel(file_obj, sheet_name=0)
     df.columns = [_normalise(c) for c in df.columns]
+    # Rename other header names to the ones the code uses
+    # (only if the sheet doesn't already have the code's name)
+    df = df.rename(columns={
+        old: new for old, new in COLUMN_ALIASES.items() if new not in df.columns
+    })
+    df = df.loc[:, ~df.columns.duplicated()]  # drop repeated headers
     #print("df Columns: ", df.columns)
     df = df.dropna(how="all")
     #print("df Dropna: ", df)
