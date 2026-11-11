@@ -13,7 +13,7 @@ from . import services
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Count,F,Prefetch
-from core.models import PartnerMilestoneTemplate,TRLProgressLog
+from core.models import PartnerMilestoneTemplate,TRLProgressLog,ApplicationSupport, ApplicationSupportAttachment, ApplicationQuantifiableDeliverable,QuantifiableDeliverableAttachment
 from django.core.exceptions import ValidationError
 import csv
 import logging
@@ -26,53 +26,168 @@ MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
 @login_required
 def overview(request):
     qs = services.apply_dashboard_filters(request)
-    applications_qs = qs.select_related("applicant", "current_trl").order_by(
-        F("date_received").desc(nulls_last=True), "-id",
+
+    applications_qs = (
+    qs.select_related(
+        "applicant",
+        "initial_trl",
+        "current_trl"
     )
+    .prefetch_related(
+        "tac_meetings",
+
+        Prefetch(
+            "trl_stages",
+            queryset=ApplicationTRLStage.objects.prefetch_related(
+                Prefetch(
+                    "partner_assignments",
+                    queryset=KnowledgePartnerAssignment.objects
+                    .select_related("partner")
+                    .order_by("-date_allotted", "-id")
+                )
+            )
+        ),
+
+        # Support, individual status and individual attachments
+        Prefetch(
+            "application_supports",
+            queryset=ApplicationSupport.objects
+            .select_related("support_option")
+            .prefetch_related("attachments")
+            .order_by("id")
+        ),
+        Prefetch(
+            "quantifiable_deliverables",
+            queryset=ApplicationQuantifiableDeliverable.objects
+            .select_related("quantifiable_deliverable")
+            .prefetch_related("attachments")
+            .order_by("id")
+        ),
+    )
+    .order_by(
+        F("date_received").desc(nulls_last=True),
+        "-id"
+    )
+)
+
     paginator = Paginator(applications_qs, 40)
     page_number = request.GET.get("page", 1)
     applications_page = paginator.get_page(page_number)
 
+    # Prepare TAC support names and latest Knowledge Partner for each application.
+    for app in applications_page:
+
+        # -----------------------------------
+        # 1. TAC support names
+        # -----------------------------------
+        support_names = []
+        # -----------------------------------
+        # 2. Latest Knowledge Partner
+        # -----------------------------------
+        latest_assignment = None
+
+        for stage in app.trl_stages.all():
+            assignments = list(stage.partner_assignments.all())
+
+            if assignments:
+                candidate = assignments[0]
+
+                if latest_assignment is None:
+                    latest_assignment = candidate
+
+                elif (
+                    candidate.date_allotted or candidate.created_at
+                ) > (
+                    latest_assignment.date_allotted
+                    or latest_assignment.created_at
+                ):
+                    latest_assignment = candidate
+
+        if latest_assignment:
+            app.latest_partner_name = latest_assignment.partner.short_code
+            app.latest_partner_date = latest_assignment.date_allotted
+        else:
+            app.latest_partner_name = "—"
+            app.latest_partner_date = None
+
+    # -----------------------------------
+    # 3. TRL chart data
+    # -----------------------------------
     trl_qs = (
         ApplicationTRLStage.objects
-        .values('trl__level', 'trl__name')
-        .annotate(value=Count('application', distinct=True))
-        .order_by('trl__level')
+        .values("trl__level", "trl__name")
+        .annotate(value=Count("application", distinct=True))
+        .order_by("trl__level")
     )
+
     trl_data = [
-        {"level": row["trl__level"], "label": row["trl__name"], "value": row["value"]}
+        {
+            "level": row["trl__level"],
+            "label": row["trl__name"],
+            "value": row["value"],
+        }
         for row in trl_qs
     ]
 
-    # --- TRL definitions for the Assign KP modal dropdowns ---
-    all_trls_qs = TRLDefinition.objects.filter(level__gt=0).order_by("level")
-    trl_definitions = list(all_trls_qs.values("id", "name", "medtech_type"))
+    # -----------------------------------
+    # 4. TRL definitions
+    # -----------------------------------
+    all_trls_qs = (
+        TRLDefinition.objects
+        .filter(level__gt=0)
+        .order_by("level")
+    )
 
-    is_admin = request.user.is_superuser or request.user.is_admin_role
-    trl_movement = services.get_trl_movement(request) if is_admin else []
-    #print("trl_movement: ", trl_movement)
-    # Numbers for the summary strip
+    trl_definitions = list(
+        all_trls_qs.values("id", "name", "medtech_type")
+    )
+
+    # -----------------------------------
+    # 5. Admin and TRL movement
+    # -----------------------------------
+    is_admin = (
+        request.user.is_superuser
+        or request.user.is_admin_role
+    )
+
+    trl_movement = (
+        services.get_trl_movement(request)
+        if is_admin else []
+    )
+
     movement_summary = {
         "total": sum(r["total"] for r in trl_movement),
-        "moved": sum(r["total"] for r in trl_movement if r["steps"] > 0),
-        "not_moved": sum(r["total"] for r in trl_movement if r["steps"] == 0),
+        "moved": sum(
+            r["total"] for r in trl_movement
+            if r["steps"] > 0
+        ),
+        "not_moved": sum(
+            r["total"] for r in trl_movement
+            if r["steps"] == 0
+        ),
     }
 
-    # Link that removes only the TRL filter (keeps the other filters)
+    # -----------------------------------
+    # 6. Clear TRL filter URL
+    # -----------------------------------
     params = request.GET.copy()
+
     for key in ("trl_from", "trl_to", "page"):
         params.pop(key, None)
-        clear_trl_url = "?" + params.urlencode()
 
+    clear_trl_url = "?" + params.urlencode()
+
+    # -----------------------------------
+    # 7. Context
+    # -----------------------------------
     context = {
         "kpis": services.kpi_summary(qs),
-        #"status_data": services.applications_by_status(qs),
         "medtech_type_data": services.applications_by_medtech_type(qs),
         "risk_data": services.applications_by_risk_class(qs),
         "partner_data": services.applications_by_knowledge_partner(),
         "trl_data": trl_data,
         "trl_levels": [row["level"] for row in trl_data],
-        "trl_level_choices": range(1, 10),                     
+        "trl_level_choices": range(1, 10),
         "status_choices": Application.ApplicationStatus.choices,
         "medtech_type_choices": Application.MedTechType.choices,
         "risk_choices": Application.RiskClass.choices,
@@ -86,6 +201,7 @@ def overview(request):
         "movement_summary": movement_summary,
         "clear_trl_url": clear_trl_url,
     }
+
     return render(request, "dashboard/overview.html", context)
 
 
@@ -96,7 +212,6 @@ def application_detail(request, pk):
        .prefetch_related(
     "tac_meetings",
     "trl_stages__partner_assignments__partner",
-    "trl_stages__partner_assignments__follow_ups",
     "trl_stages__partner_assignments__milestones",
     "trl_history__trl",
 ),

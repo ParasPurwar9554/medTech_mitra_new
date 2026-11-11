@@ -3,6 +3,10 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator,FileExtensionValidator
 
+ALLOWED_ATTACHMENT_EXTENSIONS = [
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "jpg", "jpeg", "png", "zip",
+]
 
 class TimeStampedModel(models.Model):
     """Abstract base: created/updated audit fields for every table."""
@@ -61,6 +65,7 @@ class TRLDefinition(models.Model):
     milestone_1 = models.CharField(max_length=255, blank=True)
     milestone_2 = models.CharField(max_length=255, blank=True)
     milestone_3 = models.CharField(max_length=255, blank=True)
+    milestone_4 = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ["medtech_type", "level"]
@@ -181,12 +186,12 @@ class Application(TimeStampedModel):
     status = models.CharField(max_length=20, choices=ApplicationStatus.choices,
                                default=ApplicationStatus.IN_PROGRESS, db_index=True)
 
-    initial_trl = models.ForeignKey(TRLDefinition, null=True, blank=True,
-                                     on_delete=models.SET_NULL, related_name="+")
+    initial_trl = models.ForeignKey(TRLDefinition,on_delete=models.SET_NULL,null=True,blank=True,related_name="initial_applications")
     initial_trl_date = models.DateField(null=True, blank=True)
-    current_trl = models.ForeignKey(TRLDefinition, null=True, blank=True,
-                                     on_delete=models.SET_NULL, related_name="+")
+    current_trl = models.ForeignKey(TRLDefinition,on_delete=models.SET_NULL,null=True,blank=True,related_name="current_applications")
     current_trl_date = models.DateField(null=True, blank=True)
+    initial_innovation_stage = models.TextField(max_length=30, blank=True)
+    current_innovation_stage = models.TextField(max_length=30, blank=True)
     closure_date = models.DateField(null=True, blank=True)
     reason_for_closure = models.TextField(blank=True, null=True)
     summary_Technology = models.TextField(blank=True, null=True)
@@ -202,14 +207,25 @@ class Application(TimeStampedModel):
     def __str__(self):
         return f"{self.reference_no} - {self.technology_name}"
 
+class SupportOption(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
 
 # ---------------------------------------------------------------------------
 # TAC (Technical Advisory Committee) review workflow
 # ---------------------------------------------------------------------------
 
 class TACMeeting(TimeStampedModel):
-    application = models.ForeignKey(Application, on_delete=models.CASCADE,
-                                     related_name="tac_meetings")
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="tac_meetings"
+    )
+
     meeting_ref_no = models.CharField(max_length=50, blank=True)
     meeting_date = models.DateField(null=True, blank=True)
     first_response_date = models.DateField(null=True, blank=True)
@@ -223,6 +239,169 @@ class TACMeeting(TimeStampedModel):
 
     def __str__(self):
         return f"TAC #{self.meeting_ref_no or self.pk} for {self.application.reference_no}"
+
+class ApplicationSupport(models.Model):
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        COMPLETED = "COMPLETED", "Completed"
+
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="application_supports"
+    )
+
+    support_option = models.ForeignKey(
+        SupportOption,
+        on_delete=models.CASCADE,
+        related_name="application_supports"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["application", "support_option"],
+                name="unique_application_support"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.application} - {self.support_option.name}"    
+
+
+def application_support_upload_path(instance, filename):
+    return (
+        f"application_support/"
+        f"application_{instance.application_support.application_id}/"
+        f"support_{instance.application_support.support_option_id}/"
+        f"{filename}"
+    )
+
+
+class ApplicationSupportAttachment(TimeStampedModel):
+
+    application_support = models.ForeignKey(
+        ApplicationSupport,
+        on_delete=models.CASCADE,
+        related_name="attachments"
+    )
+
+    file = models.FileField(
+        upload_to=application_support_upload_path,
+        max_length=255,
+        validators=[
+            FileExtensionValidator([
+                "pdf", "doc", "docx",
+                "xls", "xlsx",
+                "jpg", "jpeg", "png",
+                "ppt", "pptx", "zip"
+            ])
+        ]
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.application_support.support_option.name} - {self.file.name}"    
+
+############################ QuantifiableDeliverable ############################# 
+
+class QuantifiableDeliverable(models.Model):
+
+    class MedTechType(models.TextChoices):
+        MMDD = "MM-DD", "Device & Assistive Technologies"
+        MMVT = "MM-VT", "Vaccines & Therapeutics"
+        MMAT = "MM-AT", "Diagnostics"
+
+    medtech_type = models.CharField(max_length=10,choices=MedTechType.choices)
+
+    deliverable = models.CharField(max_length=500)
+
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["medtech_type", "deliverable"]
+        verbose_name = "Quantifiable Deliverable"
+        verbose_name_plural = "Quantifiable Deliverables"
+
+    def __str__(self):
+        return f"{self.get_medtech_type_display()} - {self.deliverable}"
+    
+
+class ApplicationQuantifiableDeliverable(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    application = models.ForeignKey(Application,on_delete=models.CASCADE,related_name="quantifiable_deliverables")
+    quantifiable_deliverable = models.ForeignKey(QuantifiableDeliverable,on_delete=models.PROTECT,related_name="application_deliverables")
+    status = models.CharField(max_length=20,choices=Status.choices,default=Status.PENDING)
+    remarks = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["application", "quantifiable_deliverable"],
+                name="unique_application_quantifiable_deliverable"
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.application.reference_no} - "
+            f"{self.quantifiable_deliverable.deliverable}"
+        )
+
+def quantifiable_deliverable_upload_path(instance, filename):
+    return (
+        f"quantifiable_deliverables/"
+        f"application_{instance.application_deliverable.application_id}/"
+        f"deliverable_{instance.application_deliverable_id}/"
+        f"{filename}"
+    )
+
+
+class QuantifiableDeliverableAttachment(TimeStampedModel):
+    application_deliverable = models.ForeignKey(
+        ApplicationQuantifiableDeliverable,
+        on_delete=models.CASCADE,
+        related_name="attachments"
+    )
+
+    file = models.FileField(
+        upload_to=quantifiable_deliverable_upload_path,
+        max_length=255,
+        validators=[
+            FileExtensionValidator(ALLOWED_ATTACHMENT_EXTENSIONS)
+        ]
+    )
+
+    original_name = models.CharField(max_length=255)
+    description = models.CharField(max_length=255,blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.original_name 
+
+############################ End QuantifiableDeliverable ############################# 
 
 
 class ApplicationTRLStage(TimeStampedModel):
@@ -310,19 +489,6 @@ class KnowledgePartnerAssignment(TimeStampedModel):
         return f"{self.trl_stage} -> {self.partner.short_code}"
 
 
-class FollowUp(TimeStampedModel):
-    assignment = models.ForeignKey(KnowledgePartnerAssignment, on_delete=models.CASCADE,
-                                    related_name="follow_ups")
-    sequence = models.PositiveSmallIntegerField(default=1)
-    query_text = models.TextField(blank=True)
-    meeting_date = models.DateField(null=True, blank=True)
-    response = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["assignment", "sequence"]
-        unique_together = ("assignment", "sequence")
-
-
 # ---------------------------------------------------------------------------
 # TRL milestone progress (audit trail of technical maturity over time)
 # ---------------------------------------------------------------------------
@@ -350,11 +516,6 @@ class Milestone(TimeStampedModel):
         ordering = ["assignment", "id"]
 
 
-
-ALLOWED_ATTACHMENT_EXTENSIONS = [
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-    "jpg", "jpeg", "png", "zip",
-]
 
 def trl_attachment_path(instance, filename):
     stage = instance.trl_stage

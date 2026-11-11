@@ -89,7 +89,7 @@
       <div class="col-12 col-md-4 col-lg-2">
         <label class="form-label small text-uppercase text-muted mb-1" for="status">Status</label>
         <select class="form-select" name="status" id="status">
-          <option value="">All statuses</option>
+          <option value="">All status</option>
           {% for value, label in status_choices %}
             <option value="{{ value }}" {% if active_filters.status == value %}selected{% endif %}>
               {{ label }}
@@ -276,183 +276,251 @@
 
  
 <!-- ===================== Applications table ===================== -->
+
+
 <div class="card">
-  <div class="card-header card-header-icmr">
-    Applications ({{ applications.paginator.count }} total)
-  </div>
+    <div class="card-header card-header-icmr">
+        Applications ({{ applications.paginator.count }} total)
+    </div>
 
-  <div class="card-body p-0">
-    <table class="table table-hover align-middle mb-0" style="table-layout:fixed; width:100%;">
+    <div class="card-body p-0">
+        <div class="application-table-wrapper">
 
-      <colgroup>
-        <col style="width:4%">   <!-- S.N. -->
-        <col style="width:14%">  <!-- Reference -->
-        <col style="width:28%">  <!-- Technology -->
-        <col style="width:11%">  <!-- Category -->
-        <col style="width:8%">   <!-- Class -->
-        <col style="width:10%">  <!-- Status -->
-        <col style="width:17%">  <!-- TRL -->
-        {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
-          <col style="width:8%"> <!-- Action -->
-        {% endif %}
-      </colgroup>
+            <table class="table align-middle application-table">
 
-      <thead class="table-light small">
-        <tr>
-          <th>S.N.</th>
-          <th>Reference / Received</th>
-          <th>Technology / Applicant</th>
-          <th>Category</th>
-          <th>Class</th>
-          <th>Status</th>
-          <th>TRL Progress</th>
-          {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
-            <th class="text-center">Action</th>
-          {% endif %}
-        </tr>
-      </thead>
+                <!-- Fixed column widths -->
+                <colgroup>
+                    <col style="width:3%">    <!-- S.N. -->
+                    <col style="width:10%">    <!-- Ref. No. -->
+                    <col style="width:10%">   <!-- Technology -->
+                    <col style="width:9%">    <!-- Category -->
+                    <col style="width:8%">    <!-- TAC -->
+                    <col style="width:15%">   <!-- Support Recomm. -->
+                    <col style="width:15%">   <!-- Quantifiable Deliverable -->
+                    <col style="width:9%">    <!-- Quantifiable Status -->
+                    <col style="width:10%">   <!-- Quantifiable Attachments -->
+                    <col style="width:9%">    <!-- Assigned KP/Date -->
+                </colgroup>
 
-      <tbody>
-        {% for app in applications %}
-          <tr class="app-row" style="cursor:pointer;"
-              data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
+                <!-- Table Header -->
+                <thead class="table-light">
+                    <tr>
+                        <th>S.N.</th>
+                        <th>Ref. No.</th>
+                        <th>Technology</th>
+                        <th>Category</th>
+                        <th>TAC</th>
+                        <th>Support Requested</th>
+                        <th>Quantifiable Deliverable</th>
+                        <th>Status</th>
+                        <th>Attachments</th>
+                        <th>Assigned KP/Date</th>
+                    </tr>
+                </thead>
 
-            <!-- S.N. -->
-            <td>{{ applications.start_index|add:forloop.counter0 }}</td>
+                <tbody>
 
-            <!-- Reference / Received -->
-            <td class="text-break">
-              <div class="fw-semibold font-monospace small">{{ app.reference_no }}</div>
-              <div class="small text-muted">{{ app.date_received|date:"d M Y"|default:"—" }}</div>
-            </td>
+                    {% for app in applications %}
 
-            <!-- Technology / Applicant -->
-            <td class="text-break">
-              <div class="fw-medium">{{ app.technology_name }}</div>
-              <div class="small text-muted">{{ app.applicant.name }}</div>
-            </td>
+                    <tr class="app-row"
+                        style="cursor:pointer;"
+                        data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
 
-            <!-- Category -->
-            <td class="text-break small">{{ app.get_medtech_type_display }}</td>
+                        <!-- 1. S.N. -->
+                        <td class="text-center">
+                            {{ applications.start_index|add:forloop.counter0 }}
+                        </td>
 
-            <!-- Class -->
-            <td>
-              {% if app.risk_classification == "A" %}
-                <span>Class A</span>
-              {% elif app.risk_classification == "B" %}
-                <span>Class B</span>
-              {% elif app.risk_classification == "C" %}
-                <span>Class C</span>
-              {% elif app.risk_classification == "D" %}
-                <span>Class D</span>
-              {% else %}
-                <span>Not known</span>
-              {% endif %}
-            </td>
+                        <!-- 2. Reference No. -->
+                        <td>
+                            <div class="ref-no" title="{{ app.reference_no }}">
+                                {{ app.reference_no }}
+                            </div>
 
-            <!-- Status -->
-            <td>
-              {% if app.status == "in_progress" %}
-                <span class="badge text-bg-warning">In Progress</span>
-              {% elif app.status == "closed" %}
-                <span class="badge text-bg-secondary">Closed</span>
-              {% elif app.status == "completed" %}
-                <span class="badge text-bg-success">Completed</span>
-              {% else %}
-                <span class="badge text-bg-secondary">{{ app.get_status_display }}</span>
-              {% endif %}
-            </td>
+                            <div class="text-muted small">
+                                {{ app.date_received|date:"d M Y"|default:"—" }}
+                            </div>
+                        </td>
 
-            <!-- TRL Progress -->
-            <td>
-              {% if app.current_trl %}
-                <div class="small fw-semibold">{{ app.current_trl.name }}</div>
+                        <!-- 3. Technology -->
+                        <td>
+                            <div class="tech-name">
+                                {{ app.technology_name }}
+                            </div>
 
-                <div class="progress my-1" style="height:6px;" role="progressbar"
-                     aria-label="TRL progress"
-                     aria-valuenow="{{ app.current_trl.level }}" aria-valuemin="0" aria-valuemax="9"
-                     title="TRL {{ app.current_trl.level }} of 9">
-                  <div class="progress-bar bg-success"
-                       data-width="{% widthratio app.current_trl.level 9 100 %}"></div>
-                </div>
+                            <div class="tech-applicant">
+                                {{ app.applicant.name }}
+                            </div>
+                        </td>
 
-                <div class="small text-muted">
-                  Level {{ app.current_trl.level }} of 9
-                  {% if app.initial_trl %}&middot; Started at TRL-{{ app.initial_trl.level }}{% endif %}
-                </div>
-              {% else %}
-                <span class="text-muted">&mdash;</span>
-              {% endif %}
-            </td>
+                        <!-- 4. Category -->
+                        <td>
+                            {{ app.get_medtech_type_display }}
+                        </td>
 
-            <!-- Action -->
-            {% if request.user.is_superuser or request.user.is_admin_role or request.user.is_support_partner or request.user.applicant_id %}
-              <td class="action-cell">
-                <div class="d-flex justify-content-center gap-1">
+                        <!-- 5. TAC -->
+                        <td>
+                            {% for meeting in app.tac_meetings.all %}
 
-                  {% if request.user.is_superuser or request.user.is_admin_role %}
-                    <!-- Assign Partner -->
-                    <button type="button"
-                            class="btn btn-sm btn-outline-primary action-icon-btn js-assign-btn"
-                            data-app-id="{{ app.id }}"
-                            data-initial-trl="{{ app.initial_trl_id|default:'' }}"
-                            data-current-trl="{{ app.current_trl_id|default:'' }}"
-                            data-medtech-type="{{ app.medtech_type }}"
-                            data-bs-toggle="tooltip" title="Assign Partner"
-                            aria-label="Assign Partner">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <line x1="19" y1="8" x2="19" y2="14"/>
-                        <line x1="22" y1="11" x2="16" y2="11"/>
-                      </svg>
-                    </button>
-                  {% endif %}
+                                {% if meeting.meeting_ref_no %}
+                                    <div class="tac-row">
+                                        <span class="tac-pill">
+                                            {{ meeting.meeting_ref_no }}
+                                        </span>
+                                    </div>
+                                {% endif %}
 
-                  <!-- Manage Milestones -->
-                  <button type="button"
-                          class="btn btn-sm btn-outline-success action-icon-btn js-milestone-btn"
-                          data-app-id="{{ app.id }}"
-                          data-bs-toggle="tooltip" title="Manage Milestones"
-                          aria-label="Manage Milestones">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="9 11 12 14 22 4"/>
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                    </svg>
-                  </button>
+                            {% empty %}
+                                <span class="empty-dash">—</span>
+                            {% endfor %}
+                        </td>
 
-                  <!-- Manage TRL Attachments -->
-                  <button type="button"
-                          class="btn btn-sm btn-outline-secondary action-icon-btn js-files-btn"
-                          data-app-id="{{ app.id }}"
-                          data-ref="{{ app.reference_no }}"
-                          data-bs-toggle="tooltip" title="Manage TRL Attachments"
-                          aria-label="Manage TRL Attachments">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                  </button>
+                        <!-- 6. Support Recommendations -->
+                   <td>
+    {% for support in app.application_supports.all %}
+        <div class="support-item mb-2">
+            <span class="support-name-reconme
+                {% if forloop.counter == 1 %}support-color-1
+                {% elif forloop.counter == 2 %}support-color-2
+                {% elif forloop.counter == 3 %}support-color-3
+                {% elif forloop.counter == 4 %}support-color-4
+                {% elif forloop.counter == 5 %}support-color-5
+                {% elif forloop.counter == 6 %}support-color-6
+                {% endif %}">
+                {{ support.support_option.name }}
+            </span>
+        </div>
+    {% empty %}
+        <span class="empty-dash">—</span>
+    {% endfor %}
+</td>
 
-                </div>
-              </td>
-            {% endif %}
+                        <!-- 9. Quantifiable Deliverables -->
+    <td>
+    {% for item in app.quantifiable_deliverables.all %}
+        <div class="support-item mb-2">
+            <span class="support-name-reconme
+                {% if forloop.counter == 1 %}support-color-1
+                {% elif forloop.counter == 2 %}support-color-2
+                {% elif forloop.counter == 3 %}support-color-3
+                {% elif forloop.counter == 4 %}support-color-4
+                {% elif forloop.counter == 5 %}support-color-5
+                {% elif forloop.counter == 6 %}support-color-6
+                {% endif %}"
+                title="{{ item.quantifiable_deliverable.deliverable }}">
 
-          </tr>
+                {{ item.quantifiable_deliverable.deliverable }}
+            </span>
+        </div>
+    {% empty %}
+        <span class="empty-dash">—</span>
+    {% endfor %}
+    </td>
 
-        {% empty %}
-          <tr>
-            <td colspan="8" class="text-center text-muted py-4">
-              No applications match the selected filters.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
+                        <!-- 10. Quantifiable Deliverable Status -->
+                        <td>
+                            {% for item in app.quantifiable_deliverables.all %}
 
-    </table>
-  </div>
+                                <div class="support-item mb-2">
+
+                                    {% if item.status == "pending" %}
+                                        <span class="status-badge status-pending">
+                                            Pending
+                                        </span>
+
+                                    {% elif item.status == "in_progress" %}
+                                        <span class="status-badge status-progress">
+                                            In Progress
+                                        </span>
+
+                                    {% elif item.status == "completed" %}
+                                        <span class="status-badge status-done">
+                                            Completed
+                                        </span>
+                                    {% endif %}
+
+                                </div>
+
+                            {% empty %}
+                                <span class="empty-dash">—</span>
+                            {% endfor %}
+                        </td>
+
+                        <!-- 11. Quantifiable Deliverable Attachments -->
+
+<td>
+    {% for item in app.quantifiable_deliverables.all %}
+
+        <div class="support-item support-files mb-2">
+
+            {% for attachment in item.attachments.all %}
+
+                {% if attachment.file %}
+                    <div class="mb-1">
+
+                        <a href="{{ attachment.file.url }}"
+                           download="{{ attachment.original_name }}"
+                           class="attachment-link"
+                           onclick="event.stopPropagation()"
+                           title="Download attachment">
+
+                            <i class="bi bi-download"></i>
+                            File
+
+                        </a>
+
+                    </div>
+                {% endif %}
+
+            {% empty %}
+                <span class="empty-dash">No file</span>
+            {% endfor %}
+
+        </div>
+
+    {% empty %}
+        <span class="empty-dash">—</span>
+    {% endfor %}
+</td>
+
+                        <!-- 12. Assigned KP and Date -->
+                        <td>
+                            {% if app.latest_partner_name != "—" %}
+
+                                <div class="fw-semibold">
+                                    {{ app.latest_partner_name }}
+                                </div>
+
+                                {% if app.latest_partner_date %}
+                                    <div class="text-muted small mt-1">
+                                        {{ app.latest_partner_date|date:"d-m-Y" }}
+                                    </div>
+                                {% endif %}
+
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="12"
+                            class="text-center text-muted py-4">
+                            No applications match the selected filters.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+    </div>
 </div>
 
 <!-- ===================== Pagination ===================== -->
@@ -582,7 +650,6 @@
 {{ trl_definitions_json|json_script:"trl-data" }}
 
 {% endblock %}
-
 
 {% block extra_js %}
 <script>

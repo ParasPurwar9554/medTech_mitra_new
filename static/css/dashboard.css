@@ -2,6 +2,7 @@
    MedTech Mitra Dashboard - ICMR theme
    Colours are taken from the ICMR website (icmr.gov.in)
    ========================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 
 /* ---------- 1. Colours and fonts (change them here only) ---------- */
@@ -549,3 +550,351 @@ button:focus-visible,
     border-radius: 3px;
     display: inline-block;
 }
+
+
+
+/* ---------- Font (must be the first line of the file) ---------- */
+
+/* =====================================
+   APPLICATION TABLE TYPOGRAPHY
+===================================== */
+
+/* =====================================
+   COLORS (change these in one place)
+===================================== */
+.app-card {
+    --tbl-border: #eaeef3;
+    --tbl-head-bg: #f8fafc;
+    --tbl-hover: #83aee6;
+    --tbl-hover-border: #a9c9f5;
+    --tbl-accent: #1769d2;
+    --tbl-text: #344054;
+    --tbl-muted: #98a2b3;
+
+    border: 1px solid var(--tbl-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+/* =====================================
+   HEADER COUNT BADGE
+===================================== */
+.count-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* =====================================
+   WRAPPER
+===================================== */
+.application-table-wrapper {
+    overflow: visible;
+}
+
+/* =====================================
+   TABLE BASE
+===================================== */
+.application-table {
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header */
+.application-table thead th {
+    background: var(--tbl-head-bg);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #475467;
+    padding: 12px 6px;
+    border-bottom: 1px solid var(--tbl-border);
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Body cells */
+.application-table tbody td {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--tbl-text);
+    padding: 12px 8px;
+    line-height: 1.5;
+    vertical-align: top;        /* top = support rows line up */
+    border-bottom: 1px solid var(--tbl-border);
+    background: #fff;
+    transition: background-color 0.15s ease;
+}
+
+.application-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* =====================================
+   ROW HOVER
+===================================== */
+.app-row {
+    cursor: pointer;
+}
+
+.app-row:focus-visible {
+    outline: none;
+}
+
+/* Strong blue background */
+.app-row:hover td,
+.app-row:focus-visible td {
+    background: var(--tbl-hover);
+    border-bottom-color: var(--tbl-hover-border);
+}
+
+/* Thick blue line on the left */
+.app-row:hover td:first-child,
+.app-row:focus-visible td:first-child {
+    box-shadow: inset 5px 0 0 var(--tbl-accent);
+}
+
+/* Darker text on hover so it stays readable */
+.app-row:hover td,
+.app-row:hover .ref-no,
+.app-row:hover .fw-semibold {
+    color: #0b3d91;
+}
+
+.app-row:hover .tech-name {
+    color: #0b4fb3;
+}
+
+.app-row:hover .tech-applicant,
+.app-row:hover .text-muted,
+.app-row:hover .empty-dash {
+    color: #3d5a80 !important;
+}
+
+/* White ring so pills stand out on blue */
+.app-row:hover .class-pill,
+.app-row:hover .trl-pill,
+.app-row:hover .tac-pill,
+.app-row:hover .status-badge {
+    box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* =====================================
+   REFERENCE NO.
+===================================== */
+.ref-no {
+    font-size: 12px;
+    font-weight: 700;
+    color: #344767;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;    /* long ref no. shows "..." */
+}
+
+.application-table .text-muted.small {
+    font-size: 11px;
+    color: var(--tbl-muted) !important;
+}
+
+/* =====================================
+   TECHNOLOGY
+===================================== */
+.tech-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;      /* max 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tech-applicant {
+    font-size: 11px;
+    color: #667085;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================
+   PILLS: Class / TRL / TAC
+===================================== */
+.class-pill,
+.trl-pill,
+.tac-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.class-pill { background: #f4f3ff; color: #5925dc; border-color: #d9d6fe; }
+.trl-pill   { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+.tac-pill   { background: #f2f4f7; color: #344054; border-color: #e4e7ec; }
+
+.tac-row + .tac-row {
+    margin-top: 4px;
+}
+
+/* =====================================
+   SUPPORT ITEMS (same height in 3 columns)
+===================================== */
+.support-item {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-bottom: 1px dashed var(--tbl-border);
+}
+
+.support-item:last-child {
+    border-bottom: none;
+}
+
+.app-row:hover .support-item {
+    border-bottom-color: var(--tbl-hover-border);
+}
+
+.support-name {
+    font-weight: 600;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* =====================================
+   STATUS BADGES (with dot)
+===================================== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: normal;
+}
+
+.status-badge::before {
+    content: "";
+    flex-shrink: 0;             /* dot stays round when text wraps */
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-pending  { background: #fffaeb; color: #b54708; }
+.status-progress { background: #eff8ff; color: #175cd3; }
+.status-done     { background: #ecfdf3; color: #067647; }
+
+/* =====================================
+   ATTACHMENTS
+===================================== */
+.support-files {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.attachment-link {
+    max-width: 100%;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tbl-accent);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attachment-link:hover {
+    color: #084298;
+    text-decoration: underline;
+}
+
+.app-row:hover .attachment-link {
+    color: #0b3d91;
+}
+
+/* =====================================
+   ASSIGNED KP
+===================================== */
+.application-table .fw-semibold {
+    font-size: 12px;
+    font-weight: 700 !important;
+    color: var(--tbl-text);
+}
+
+/* =====================================
+   EMPTY VALUES
+===================================== */
+.empty-dash {
+    font-size: 12px;
+    color: var(--tbl-muted);
+}
+
+
+/****************** Support Option ***************************/ 
+.support-name-reconme {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Different SupportOption IDs */
+.support-color-1 {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+}
+
+.support-color-2 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+}
+
+.support-color-3 {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+.support-color-4 {
+    background-color: #f3e8ff !important;
+    color: #6b21a8 !important;
+}
+
+.support-color-5 {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+.support-color-6 {
+    background-color: #cffafe !important;
+    color: #155e75 !important;
+}
+
+
+

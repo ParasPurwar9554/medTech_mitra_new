@@ -7,9 +7,13 @@ which is standard practice for Government of India IT deployments.
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+(BASE_DIR / "logs").mkdir(exist_ok=True)
 
+load_dotenv(BASE_DIR / ".env")
 
 def env_bool(name, default=False):
     return os.environ.get(name, str(default)).lower() in ("1", "true", "yes")
@@ -23,8 +27,14 @@ def env_list(name, default=""):
 # --------------------------------------------------------------------------
 # Core / security
 # --------------------------------------------------------------------------
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me")
-DEBUG = env_bool("DJANGO_DEBUG", default=True)
+DEBUG = env_bool("DJANGO_DEBUG", default=False)
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-only-insecure-key-change-me"
+    else:
+        raise RuntimeError("DJANGO_SECRET_KEY must be set when DEBUG=False")
+    
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 
@@ -45,7 +55,7 @@ INSTALLED_APPS = [
     "accounts",
     "core",
     "dashboard",
-    "django_ckeditor_5"
+    "django_ckeditor_5",
 ]
 
 MIDDLEWARE = [
@@ -82,16 +92,25 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Defaults to SQLite for local dev; set DJANGO_DB_ENGINE=postgres for
 # production (recommended: PostgreSQL on NIC/MeghRaj cloud).
 # --------------------------------------------------------------------------
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'medtech_mitra_db',
-        'USER': 'postgres',
-        'PASSWORD': '123456',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+if os.environ.get("DJANGO_DB_ENGINE") == "postgres":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB"),
+            "USER": os.environ.get("POSTGRES_USER"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": 60,  # reuse DB connections for 60 seconds (faster)
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
@@ -184,7 +203,7 @@ LOGGING = {
         "login": {"handlers": ["console", "login_file"], "level": "INFO", "propagate": False},
     },
 }
-(BASE_DIR / "logs").mkdir(exist_ok=True)
+
 
 CKEDITOR_5_CONFIGS = {
     "default": {
