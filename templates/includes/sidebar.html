@@ -1,0 +1,56 @@
+
+<div id="layoutSidenav_nav">
+
+    <nav class="sb-sidenav accordion sb-sidenav-dark"
+         id="sidenavAccordion">
+
+        <div class="sb-sidenav-menu">
+
+            <div class="nav">
+
+                <!-- Core Section -->
+                <div class="sb-sidenav-menu-heading">
+                    Core
+                </div>
+
+                <!-- Dashboard -->
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                   href="{% url 'dashboard:overview' %}">
+
+                    <div class="sb-nav-link-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+
+                    Dashboard
+
+                </a>
+
+                <!-- Applications -->
+                <a class="nav-link {% if request.resolver_match.url_name == 'applications' %}active{% endif %}"
+                   href="{% url 'dashboard:applications' %}">
+
+                    <div class="sb-nav-link-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+
+                    Applications
+
+                </a>
+            </div>
+
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="sb-sidenav-footer">
+
+            <div class="small">
+                Logged in as:
+            </div>
+
+            {{ request.user.get_full_name|default:request.user.username }}
+
+        </div>
+
+    </nav>
+
+</div>

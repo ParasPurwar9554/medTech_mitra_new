@@ -13,7 +13,7 @@ from . import services
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Count,F,Prefetch
-from core.models import PartnerMilestoneTemplate,TRLProgressLog,ApplicationSupport, ApplicationSupportAttachment, ApplicationQuantifiableDeliverable,QuantifiableDeliverableAttachment
+from core.models import TACMeeting,PartnerMilestoneTemplate,TRLProgressLog,ApplicationSupport, ApplicationQuantifiableDeliverable,QuantifiableDeliverableAttachment
 from django.core.exceptions import ValidationError
 import csv
 import logging
@@ -21,6 +21,159 @@ from django.contrib import messages
 from django.urls import reverse
 logger = logging.getLogger(__name__)
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
+
+
+
+from django.db.models import Q, F, Prefetch
+from django.core.paginator import Paginator
+
+@login_required
+def applications(request):
+
+    # Base queryset: apply all filters except MedTech Type
+    base_qs = services.apply_dashboard_filters(
+        request,
+        include_medtech_type=False
+    )
+
+    # Selected MedTech category (default: first category)
+    valid_types = [
+        value for value, label in Application.MedTechType.choices
+    ]
+
+    selected_medtech_type = request.GET.get("medtech_type", "")
+
+    if selected_medtech_type not in valid_types:
+        selected_medtech_type = valid_types[0] if valid_types else ""
+
+    # Count applications for each MedTech category
+    medtech_tabs = []
+
+    for value, label in Application.MedTechType.choices:
+        medtech_tabs.append({
+            "value": value,
+            "label": label,
+            "count": base_qs.filter(
+                medtech_type=value
+            ).count(),
+        })
+
+    # Apply selected MedTech category
+    qs = base_qs.filter(
+        medtech_type=selected_medtech_type
+    ) if selected_medtech_type else base_qs
+
+    # ---------------------------------
+    # Search: Reference, Technology, Applicant Name
+    # ---------------------------------
+    search_query = request.GET.get("q", "").strip()
+
+    if search_query:
+        qs = qs.filter(
+            Q(reference_no__icontains=search_query) |
+            Q(technology_name__icontains=search_query) |
+            Q(applicant__name__icontains=search_query)
+        )
+    # MedTech Sub Category dropdown filter
+    selected_subtype = request.GET.get("subtype", "")    
+    valid_subtypes = [
+    value for value, label
+    in Application.MedTechSubCategoryType.choices
+    ]
+
+    if selected_subtype not in valid_subtypes:
+        selected_subtype = ""
+
+    if selected_subtype:
+         qs = qs.filter(medtech_subtype=selected_subtype)
+
+    # Generate tab URLs and preserve other filters
+    tab_params = request.GET.copy()
+    tab_params.pop("medtech_type", None)
+    tab_params.pop("page", None)
+
+    for tab in medtech_tabs:
+        params = tab_params.copy()
+        params["medtech_type"] = tab["value"]
+        tab["url"] = f"?{params.urlencode()}"
+
+    # Applications queryset
+    applications_qs = (
+        qs.select_related(
+            "applicant",
+            "initial_trl",
+            "current_trl",
+        )
+        .prefetch_related(
+            Prefetch(
+                "tac_meetings",
+                queryset=TACMeeting.objects.order_by(
+                    "-meeting_date", "-id"
+                ),
+            ),
+
+            Prefetch(
+                "application_supports",
+                queryset=ApplicationSupport.objects
+                .select_related("support_option")
+                .order_by("id"),
+            ),
+
+            Prefetch(
+                "trl_stages",
+                queryset=ApplicationTRLStage.objects.select_related(
+                    "trl"
+                ).order_by("trl__level"),
+            ),
+
+            Prefetch(
+                "quantifiable_deliverables",
+                queryset=ApplicationQuantifiableDeliverable.objects
+                .select_related(
+                    "quantifiable_deliverable",
+                    "trl_stage__trl",
+                    "knowledge_partner",
+                )
+                .prefetch_related("attachments")
+                .order_by("trl_stage__trl__level", "id"),
+            ),
+        )
+        .order_by(
+            F("date_received").desc(nulls_last=True),
+            "-id",
+        )
+    )
+
+    # Pagination
+    paginator = Paginator(applications_qs, 20)
+    page_number = request.GET.get("page", 1)
+    applications_page = paginator.get_page(page_number)
+
+    # Admin
+    is_admin = (
+        request.user.is_superuser
+        or request.user.is_admin_role
+    )
+
+    # Context
+    context = {
+        "kpis": services.kpi_summary(base_qs),
+        "medtech_type_data": services.applications_by_medtech_type(qs),
+        "risk_data": services.applications_by_risk_class(qs),
+        "status_choices": Application.ApplicationStatus.choices,
+        "medtech_type_choices": Application.MedTechType.choices,
+        "medtech_tabs": medtech_tabs,
+        "selected_subtype": selected_subtype,
+        "subtype_choices": Application.MedTechSubCategoryType.choices,
+        "selected_medtech_type": selected_medtech_type,
+        "partners": KnowledgePartner.objects.filter(is_active=True),
+        "active_filters": request.GET,
+        "applications": applications_page,
+        "is_admin": is_admin,
+        "search_query": search_query,
+    }
+
+    return render(request, "dashboard/applications.html", context)
 
 
 @login_required
@@ -53,7 +206,6 @@ def overview(request):
             "application_supports",
             queryset=ApplicationSupport.objects
             .select_related("support_option")
-            .prefetch_related("attachments")
             .order_by("id")
         ),
         Prefetch(
@@ -70,7 +222,7 @@ def overview(request):
     )
 )
 
-    paginator = Paginator(applications_qs, 40)
+    paginator = Paginator(applications_qs, 5)
     page_number = request.GET.get("page", 1)
     applications_page = paginator.get_page(page_number)
 
@@ -202,7 +354,7 @@ def overview(request):
         "clear_trl_url": clear_trl_url,
     }
 
-    return render(request, "dashboard/overview.html", context)
+    return render(request, "dashboard/dashboard.html", context)
 
 
 @login_required
@@ -295,36 +447,6 @@ def trl_detail_ajax(request):
         "assigned_partners": all_assigned_partners,
         "partners": matched_partners,
     })
-
-
-# @login_required
-# def trl_drilldown(request, trl_level):
-#     """Called when a pie slice is clicked. Returns total applications for that
-#     TRL level, split by knowledge partner and by milestone status."""
-
-#     partner_qs = (
-#         KnowledgePartnerAssignment.objects
-#         .filter(trl_stage__trl__level=trl_level)
-#         .values('partner__short_code')
-#         .annotate(value=Count('trl_stage__application', distinct=True))
-#         .order_by('partner__short_code')
-#     )
-#     partner_data = [{"label": r["partner__short_code"], "value": r["value"]} for r in partner_qs]
-
-#     milestone_qs = (
-#         Milestone.objects
-#         .filter(assignment__trl_stage__trl__level=trl_level)
-#         .values('status')
-#         .annotate(value=Count('assignment__trl_stage__application', distinct=True))
-#         .order_by('status')
-#     )
-#     status_labels = {"open": "Open", "in_progress": "In Progress", "closed": "Completed"}
-#     milestone_data = [
-#         {"label": status_labels.get(r["status"], r["status"]), "value": r["value"]}
-#         for r in milestone_qs
-#     ]
-
-#     return JsonResponse({"partner_data": partner_data, "milestone_data": milestone_data})
 
 
 @require_GET
@@ -878,23 +1000,6 @@ def download_trl_attachment(request, pk):
     if role_for_stage(request.user, att.trl_stage) is None:
         raise Http404
     return FileResponse(att.file.open("rb"), as_attachment=True, filename=att.original_name)
-
-
-@login_required
-@require_POST
-def delete_trl_attachment(request):
-    att = get_object_or_404(
-        TRLStageAttachment.objects.select_related("trl_stage__application__applicant"),
-        pk=request.POST.get("attachment_id"),
-    )
-    role = role_for_stage(request.user, att.trl_stage)
-    if role is None or (role != "admin" and att.created_by_id != request.user.id):
-        return JsonResponse({"error": "You can only delete your own files."}, status=403)
-
-    att.file.delete(save=False)   # remove the file from disk
-    att.delete()
-    return JsonResponse({"ok": True})
-
 
 
 @login_required

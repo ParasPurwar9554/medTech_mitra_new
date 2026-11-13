@@ -21,19 +21,28 @@ def _to_date(text):
 
     
 def kpi_summary(queryset=None):
+
     qs = queryset if queryset is not None else Application.objects.all()
-    #total = qs.count()
-    in_progress = qs.filter(status=Application.ApplicationStatus.IN_PROGRESS).count()
-    closed = qs.filter(status=Application.ApplicationStatus.CLOSED).count()
-    completed = qs.filter(status=Application.ApplicationStatus.COMPLTED).count()
-    #assign_to_kp = qs.filter(status=Application.ApplicationStatus.ASSIGNED_TO_KP).count()
-    assigned_partners = KnowledgePartnerAssignment.objects.values("partner").distinct().count()
+
+    total = qs.count()
+
+    in_progress = qs.filter(
+        status=Application.ApplicationStatus.IN_PROGRESS
+    ).count()
+
+    closed = qs.filter(
+        status=Application.ApplicationStatus.CLOSED
+    ).count()
+
+    completed = qs.filter(
+        status=Application.ApplicationStatus.COMPLTED
+    ).count()
 
     return {
-        "total_application":in_progress+closed + completed,
+        "total_application": total,
         "in_progress": in_progress,
-        "closed":closed,
-        "completed":completed
+        "closed": closed,
+        "completed": completed,
     }
 
 
@@ -42,7 +51,6 @@ def applications_by_status(queryset=None):
     rows = qs.values("status").annotate(count=Count("id")).order_by("-count")
     label_map = dict(Application.ApplicationStatus.choices)
     return [{"label": label_map.get(r["status"], r["status"]), "value": r["count"]} for r in rows]
-
 
 def applications_by_medtech_type(queryset=None):
     qs = queryset if queryset is not None else Application.objects.all()
@@ -87,8 +95,9 @@ def get_base_queryset(user):
     # Anyone else: nothing
     return Application.objects.none()
 
-def apply_dashboard_filters(request, include_trl=True):
+def apply_dashboard_filters(request, include_trl=True, include_medtech_type=True):
     qs = get_base_queryset(request.user)
+
     status = request.GET.get("status")
     medtech_type = request.GET.get("medtech_type")
     risk = request.GET.get("risk_classification")
@@ -105,30 +114,39 @@ def apply_dashboard_filters(request, include_trl=True):
             Q(applicant__name__icontains=by_reference) |
             Q(technology_name__icontains=by_reference)
         )
+
     if status:
         qs = qs.filter(status=status)
-    if medtech_type:
+
+    if include_medtech_type and medtech_type:
         qs = qs.filter(medtech_type=medtech_type)
+
     if risk:
         qs = qs.filter(risk_classification=risk)
+
     if partner:
-        qs = qs.filter(trl_stages__partner_assignments__partner__short_code=partner)
+        qs = qs.filter(
+            trl_stages__partner_assignments__partner__short_code=partner
+        )
+
     if date_from or date_to:
         received_q = Q()
         meeting_q = Q()
+
         if date_from:
             received_q &= Q(date_received__gte=date_from)
             meeting_q &= Q(tac_meetings__meeting_date__gte=date_from)
+
         if date_to:
             received_q &= Q(date_received__lte=date_to)
             meeting_q &= Q(tac_meetings__meeting_date__lte=date_to)
 
         qs = qs.filter(received_q | meeting_q)
 
-    # TRL filters (skipped when building the movement table)
     if include_trl:
         if trl_from.isdigit():
             qs = qs.filter(initial_trl__level=int(trl_from))
+
         if trl_to.isdigit():
             qs = qs.filter(current_trl__level=int(trl_to))
 

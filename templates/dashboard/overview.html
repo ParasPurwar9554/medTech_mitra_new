@@ -1,1565 +1,647 @@
-{% extends "base.html" %}
-{% block title %}Overview{% endblock %}
-
-{% block content %}
-
-<div class="mb-4">
-  <h1 class="h3 fw-semibold mb-2 section-heading">
-      Overview
-  </h1>
-</div>
-<div id="messageArea" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080; max-width: 400px;">
-  {% for message in messages %}
-    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show auto-dismiss shadow mb-2" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-  {% endfor %}
-</div>
-<div class="row g-3 mb-4">
-
-  <!-- Total Applications -->
-  <div class="col-12 col-md-3">
-    <div class="card h-100 shadow-sm kpi-card kpi-total">
-      <div class="card-body">
-        <div class="kpi-label">Total applications</div>
-        <div class="display-6 fw-semibold kpi-value">
-          {{ kpis.total_application }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- In Progress -->
-  <div class="col-12 col-md-3">
-    <div class="card h-100 shadow-sm kpi-card kpi-progress">
-      <div class="card-body">
-        <div class="kpi-label">In progress</div>
-        <div class="display-6 fw-semibold kpi-value">
-          {{ kpis.in_progress }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Closed -->
-  <div class="col-12 col-md-3">
-    <div class="card h-100 shadow-sm kpi-card kpi-closed">
-      <div class="card-body">
-        <div class="kpi-label">Closed</div>
-        <div class="display-6 fw-semibold kpi-value">
-          {{ kpis.closed }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Completed -->
-  <div class="col-12 col-md-3">
-    <div class="card h-100 shadow-sm kpi-card kpi-done">
-      <div class="card-body">
-        <div class="kpi-label">Completed</div>
-        <div class="display-6 fw-semibold kpi-value">
-          {{ kpis.completed }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ===================== Filter bar ===================== -->
-<div class="card mb-4">
-  <div class="card-body">
-    <form method="get" class="row g-3 align-items-end">
-
-      <!-- Search -->
-      <div class="col-12 {% if is_admin %}col-lg-4{% else %}col-lg{% endif %}">
-        <label class="form-label small text-uppercase text-muted mb-1" for="by_reference">Search</label>
-        <input type="text"
-               class="form-control"
-               name="by_reference"
-               id="by_reference"
-               value="{{ active_filters.by_reference|default:'' }}"
-               placeholder="Reference, innovator or technology"
-               title="Reference | Innovator Name | Technology Name">
-      </div>
-
-      <!-- Status -->
-      <div class="col-12 col-md-4 col-lg-2">
-        <label class="form-label small text-uppercase text-muted mb-1" for="status">Status</label>
-        <select class="form-select" name="status" id="status">
-          <option value="">All status</option>
-          {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if active_filters.status == value %}selected{% endif %}>
-              {{ label }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <!-- Category -->
-      <div class="col-12 col-md-4 {% if is_admin %}col-lg-3{% else %}col-lg-2{% endif %}">
-        <label class="form-label small text-uppercase text-muted mb-1" for="medtech_type">Category</label>
-        <select class="form-select" name="medtech_type" id="medtech_type">
-          <option value="">All categories</option>
-          {% for value, label in medtech_type_choices %}
-            <option value="{{ value }}" {% if active_filters.medtech_type == value %}selected{% endif %}>
-              {{ label }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      {% if is_admin %}
-        <!-- Partner (admin only) -->
-        <div class="col-12 col-md-4 col-lg-3">
-          <label class="form-label small text-uppercase text-muted mb-1" for="partner">Partner</label>
-          <select class="form-select" name="partner" id="partner">
-            <option value="">All partners</option>
-            {% for p in partners %}
-              <option value="{{ p.short_code }}" {% if active_filters.partner == p.short_code %}selected{% endif %}>
-                {{ p.short_code }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Start a new line for admins -->
-        <div class="w-100"></div>
-      {% endif %}
-
-      <!-- Date range -->
-      <div class="col-12 col-md-6 col-lg-4">
-        <label class="form-label small text-uppercase text-muted mb-1" for="date_from">Date range</label>
-        <div class="input-group">
-          <input type="date" class="form-control" name="date_from" id="date_from"
-                 value="{{ active_filters.date_from }}" aria-label="From date">
-          <span class="input-group-text">to</span>
-          <input type="date" class="form-control" name="date_to" id="date_to"
-                 value="{{ active_filters.date_to }}" aria-label="To date">
-        </div>
-      </div>
-
-      {% if is_admin %}
-        <!-- TRL movement (admin only) -->
-        <div class="col-12 col-md-6 col-lg-4">
-          <label class="form-label small text-uppercase text-muted mb-1" for="trl_from">TRL movement</label>
-          <div class="input-group">
-            <select class="form-select" name="trl_from" id="trl_from" aria-label="From TRL">
-              <option value="">Initial TRL</option>
-              {% for level in trl_level_choices %}
-                <option value="{{ level }}" {% if active_filters.trl_from == level|stringformat:"d" %}selected{% endif %}>
-                  TRL {{ level }}
-                </option>
-              {% endfor %}
-            </select>
-            <span class="input-group-text">&rarr;</span>
-            <select class="form-select" name="trl_to" id="trl_to" aria-label="To TRL">
-              <option value="">Current TRL</option>
-              {% for level in trl_level_choices %}
-                <option value="{{ level }}" {% if active_filters.trl_to == level|stringformat:"d" %}selected{% endif %}>
-                  TRL {{ level }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      {% endif %}
-
-    <!-- Buttons -->
-    <div class="col-12 {% if is_admin %}col-lg{% else %}col-lg-auto{% endif %} d-flex gap-2 justify-content-lg-end">
-      <a href="{% url 'dashboard:overview' %}" class="btn btn-outline-secondary">Reset</a>
-      {% if is_admin %}
-<button type="button"
-        id="exportBtn"
-        data-url="{% url 'dashboard:export_applications' %}"
-        class="btn btn-outline-success">
-  <span class="spinner-border spinner-border-sm me-1 d-none" id="exportSpinner" role="status" aria-hidden="true"></span>
-  <span id="exportText">Export CSV</span>
-</button>
-{% endif %}
-      <button type="submit" class="btn btn-icmr">Apply filters</button>
-    </div>
-
-    </form>
-  </div>
-</div>
-
-<!-- ===================== TRL Movement ===================== -->
-<!-- {% if is_admin and trl_movement %}
-<div class="card mb-4">
-
-  
-  <div class="card-header card-header-icmr d-flex justify-content-between align-items-center">
-    <span>TRL Movement</span>
-    {% if active_filters.trl_from or active_filters.trl_to %}
-      <a href="{{ clear_trl_url }}" class="small text-white text-decoration-underline">Clear TRL filter</a>
-    {% else %}
-      <span class="small fw-normal">Click a number to see those applications</span>
-    {% endif %}
-  </div>
-
-  
-  <div class="row g-0 text-center border-bottom">
-    <div class="col-4 py-2 border-end">
-      <div class="fs-5 fw-semibold">{{ movement_summary.total }}</div>
-      <div class="small text-muted">Tracked</div>
-    </div>
-    <div class="col-4 py-2 border-end">
-      <div class="fs-5 fw-semibold text-success">{{ movement_summary.moved }}</div>
-      <div class="small text-muted">Moved forward</div>
-    </div>
-    <div class="col-4 py-2">
-      <div class="fs-5 fw-semibold text-secondary">{{ movement_summary.not_moved }}</div>
-      <div class="small text-muted">Not moved yet</div>
-    </div>
-  </div>
-
-  <div class="card-body p-0" style="max-height:320px; overflow-y:auto;">
-    <table class="table table-sm table-hover align-middle mb-0">
-      <thead class="table-light small" style="position:sticky; top:0; z-index:1;">
-        <tr>
-          <th class="ps-3">Movement</th>
-          <th>Progress</th>
-          <th>Change</th>
-          <th class="text-end pe-3">Applications</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in trl_movement %}
-          <tr>
-
-            <td class="ps-3 fw-semibold small text-nowrap">
-              TRL {{ row.from_level }}
-              <span class="text-muted mx-1">&rarr;</span>
-              TRL {{ row.to_level }}
-            </td>
-
-            <td>
-              <div class="d-flex gap-1" title="TRL {{ row.from_level }} to TRL {{ row.to_level }}">
-                {% for level in trl_level_choices %}
-                  {% if row.steps > 0 and level >= row.from_level and level <= row.to_level %}
-                    <span class="trl-dot bg-success"></span>
-                  {% elif row.steps < 0 and level <= row.from_level and level >= row.to_level %}
-                    <span class="trl-dot bg-warning"></span>
-                  {% elif row.steps == 0 and level == row.from_level %}
-                    <span class="trl-dot bg-secondary"></span>
-                  {% else %}
-                    <span class="trl-dot bg-body-secondary"></span>
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </td>
-
-            <td>
-              {% if row.steps > 0 %}
-                <span class="badge text-bg-success">&uarr; {{ row.steps }} level{{ row.steps|pluralize }}</span>
-              {% elif row.steps == 0 %}
-                <span class="badge text-bg-secondary">Not moved yet</span>
-              {% else %}
-                <span class="badge text-bg-warning">&darr; {{ row.steps|stringformat:"d"|cut:"-" }} level{{ row.steps|pluralize }}</span>
-              {% endif %}
-            </td>
-
-            <td class="text-end pe-3">
-              <a href="{{ row.url }}" class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold">{{ row.total }}</a>
-            </td>
-
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %} -->
-
- 
-<!-- ===================== Applications table ===================== -->
-
-
-<div class="card">
-    <div class="card-header card-header-icmr">
-        Applications ({{ applications.paginator.count }} total)
-    </div>
-
-    <div class="card-body p-0">
-        <div class="application-table-wrapper">
-
-            <table class="table align-middle application-table">
-
-                <!-- Fixed column widths -->
-                <colgroup>
-                    <col style="width:3%">    <!-- S.N. -->
-                    <col style="width:10%">    <!-- Ref. No. -->
-                    <col style="width:10%">   <!-- Technology -->
-                    <col style="width:9%">    <!-- Category -->
-                    <col style="width:8%">    <!-- TAC -->
-                    <col style="width:15%">   <!-- Support Recomm. -->
-                    <col style="width:15%">   <!-- Quantifiable Deliverable -->
-                    <col style="width:9%">    <!-- Quantifiable Status -->
-                    <col style="width:10%">   <!-- Quantifiable Attachments -->
-                    <col style="width:9%">    <!-- Assigned KP/Date -->
-                </colgroup>
-
-                <!-- Table Header -->
-                <thead class="table-light">
-                    <tr>
-                        <th>S.N.</th>
-                        <th>Ref. No.</th>
-                        <th>Technology</th>
-                        <th>Category</th>
-                        <th>TAC</th>
-                        <th>Support Requested</th>
-                        <th>Quantifiable Deliverable</th>
-                        <th>Status</th>
-                        <th>Attachments</th>
-                        <th>Assigned KP/Date</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                    {% for app in applications %}
-
-                    <tr class="app-row"
-                        style="cursor:pointer;"
-                        data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
-
-                        <!-- 1. S.N. -->
-                        <td class="text-center">
-                            {{ applications.start_index|add:forloop.counter0 }}
-                        </td>
-
-                        <!-- 2. Reference No. -->
-                        <td>
-                            <div class="ref-no" title="{{ app.reference_no }}">
-                                {{ app.reference_no }}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta name="description" content="" />
+        <meta name="author" content="" />
+        <title>MedTech Mitra</title>
+        <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
+        
+        <!-- SB Admin CSS -->
+        <link href="{% static 'sbadmin/css/styles.css' %}" rel="stylesheet">
+        <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    </head>
+    <body class="sb-nav-fixed">
+        <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+            <!-- Navbar Brand-->
+            <a class="navbar-brand ps-3" href="index.html">MedTech Mitra</a>
+            <!-- Sidebar Toggle-->
+            <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
+            <!-- Navbar Search-->
+            <form class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
+                <div class="input-group">
+                   
+                </div>
+            </form>
+            <!-- Navbar-->
+            <ul class="navbar-nav ms-auto ms-md-0 me-3 me-lg-4">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-user fa-fw"></i></a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                        <li>
+                        <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">
+                                Logout
+                            </button>
+                        </form>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+        <div id="layoutSidenav">
+            <div id="layoutSidenav_nav">
+                <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+                    <div class="sb-sidenav-menu">
+                        <div class="nav">
+                            <div class="sb-sidenav-menu-heading">Core</div>
+                            <a class="nav-link" href="index.html">
+                                <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
+                                Dashboard
+                            </a>
+                            <a class="nav-link" href="{% url 'dashboard:applications' %}">
+                            <div class="sb-nav-link-icon">
+                                <i class="fas fa-tachometer-alt"></i>
                             </div>
-
-                            <div class="text-muted small">
-                                {{ app.date_received|date:"d M Y"|default:"—" }}
-                            </div>
-                        </td>
-
-                        <!-- 3. Technology -->
-                        <td>
-                            <div class="tech-name">
-                                {{ app.technology_name }}
-                            </div>
-
-                            <div class="tech-applicant">
-                                {{ app.applicant.name }}
-                            </div>
-                        </td>
-
-                        <!-- 4. Category -->
-                        <td>
-                            {{ app.get_medtech_type_display }}
-                        </td>
-
-                        <!-- 5. TAC -->
-                        <td>
-                            {% for meeting in app.tac_meetings.all %}
-
-                                {% if meeting.meeting_ref_no %}
-                                    <div class="tac-row">
-                                        <span class="tac-pill">
-                                            {{ meeting.meeting_ref_no }}
-                                        </span>
-                                    </div>
-                                {% endif %}
-
-                            {% empty %}
-                                <span class="empty-dash">—</span>
-                            {% endfor %}
-                        </td>
-
-                        <!-- 6. Support Recommendations -->
-                   <td>
-    {% for support in app.application_supports.all %}
-        <div class="support-item mb-2">
-            <span class="support-name-reconme
-                {% if forloop.counter == 1 %}support-color-1
-                {% elif forloop.counter == 2 %}support-color-2
-                {% elif forloop.counter == 3 %}support-color-3
-                {% elif forloop.counter == 4 %}support-color-4
-                {% elif forloop.counter == 5 %}support-color-5
-                {% elif forloop.counter == 6 %}support-color-6
-                {% endif %}">
-                {{ support.support_option.name }}
-            </span>
-        </div>
-    {% empty %}
-        <span class="empty-dash">—</span>
-    {% endfor %}
-</td>
-
-                        <!-- 9. Quantifiable Deliverables -->
-    <td>
-    {% for item in app.quantifiable_deliverables.all %}
-        <div class="support-item mb-2">
-            <span class="support-name-reconme
-                {% if forloop.counter == 1 %}support-color-1
-                {% elif forloop.counter == 2 %}support-color-2
-                {% elif forloop.counter == 3 %}support-color-3
-                {% elif forloop.counter == 4 %}support-color-4
-                {% elif forloop.counter == 5 %}support-color-5
-                {% elif forloop.counter == 6 %}support-color-6
-                {% endif %}"
-                title="{{ item.quantifiable_deliverable.deliverable }}">
-
-                {{ item.quantifiable_deliverable.deliverable }}
-            </span>
-        </div>
-    {% empty %}
-        <span class="empty-dash">—</span>
-    {% endfor %}
-    </td>
-
-                        <!-- 10. Quantifiable Deliverable Status -->
-                        <td>
-                            {% for item in app.quantifiable_deliverables.all %}
-
-                                <div class="support-item mb-2">
-
-                                    {% if item.status == "pending" %}
-                                        <span class="status-badge status-pending">
-                                            Pending
-                                        </span>
-
-                                    {% elif item.status == "in_progress" %}
-                                        <span class="status-badge status-progress">
-                                            In Progress
-                                        </span>
-
-                                    {% elif item.status == "completed" %}
-                                        <span class="status-badge status-done">
-                                            Completed
-                                        </span>
-                                    {% endif %}
-
-                                </div>
-
-                            {% empty %}
-                                <span class="empty-dash">—</span>
-                            {% endfor %}
-                        </td>
-
-                        <!-- 11. Quantifiable Deliverable Attachments -->
-
-<td>
-    {% for item in app.quantifiable_deliverables.all %}
-
-        <div class="support-item support-files mb-2">
-
-            {% for attachment in item.attachments.all %}
-
-                {% if attachment.file %}
-                    <div class="mb-1">
-
-                        <a href="{{ attachment.file.url }}"
-                           download="{{ attachment.original_name }}"
-                           class="attachment-link"
-                           onclick="event.stopPropagation()"
-                           title="Download attachment">
-
-                            <i class="bi bi-download"></i>
-                            File
-
+                            Applications
                         </a>
-
+                        </div>
                     </div>
-                {% endif %}
-
-            {% empty %}
-                <span class="empty-dash">No file</span>
-            {% endfor %}
-
-        </div>
-
-    {% empty %}
-        <span class="empty-dash">—</span>
-    {% endfor %}
-</td>
-
-                        <!-- 12. Assigned KP and Date -->
-                        <td>
-                            {% if app.latest_partner_name != "—" %}
-
-                                <div class="fw-semibold">
-                                    {{ app.latest_partner_name }}
-                                </div>
-
-                                {% if app.latest_partner_date %}
-                                    <div class="text-muted small mt-1">
-                                        {{ app.latest_partner_date|date:"d-m-Y" }}
+                    <div class="sb-sidenav-footer">
+                        <div class="small">Logged in as:</div>
+                        MedTech Mitra
+                    </div>
+                </nav>
+            </div>
+            <div id="layoutSidenav_content">
+                <main>
+                    <div class="container-fluid px-4">
+                        <h1 class="mt-4">Welcome to MedTech Mitra</h1>
+                        <ol class="breadcrumb mb-4">
+                            <li class="breadcrumb-item active">Dashboard</li>
+                        </ol>
+                        <div class="row">
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card bg-primary text-white mb-4">
+                                    <div class="card-body">Primary Card</div>
+                                    <div class="card-footer d-flex align-items-center justify-content-between">
+                                        <a class="small text-white stretched-link" href="#">View Details</a>
+                                        <div class="small text-white"><i class="fas fa-angle-right"></i></div>
                                     </div>
-                                {% endif %}
-
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-
-                    </tr>
-
-                    {% empty %}
-
-                    <tr>
-                        <td colspan="12"
-                            class="text-center text-muted py-4">
-                            No applications match the selected filters.
-                        </td>
-                    </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
-    </div>
-</div>
-
-<!-- ===================== Pagination ===================== -->
-{% if applications.paginator.num_pages > 1 %}
-  <nav aria-label="Applications pages" class="mt-3">
-    <ul class="pagination justify-content-center align-items-center mb-0">
-
-      {% if applications.has_previous %}
-        <li class="page-item">
-          <a class="page-link" href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1">&laquo; First</a>
-        </li>
-        <li class="page-item">
-          <a class="page-link" href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.previous_page_number }}">&lsaquo; Prev</a>
-        </li>
-      {% endif %}
-
-      <li class="page-item disabled">
-        <span class="page-link">Page {{ applications.number }} of {{ applications.paginator.num_pages }}</span>
-      </li>
-
-      {% if applications.has_next %}
-        <li class="page-item">
-          <a class="page-link" href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.next_page_number }}">Next &rsaquo;</a>
-        </li>
-        <li class="page-item">
-          <a class="page-link" href="?{% for k,v in active_filters.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ applications.paginator.num_pages }}">Last &raquo;</a>
-        </li>
-      {% endif %}
-
-    </ul>
-  </nav>
-{% endif %}
-
-<div class="modal fade" id="assign-modal" tabindex="-1"
-     aria-labelledby="assign-modal-title" aria-hidden="true"
-     data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="assign-modal-title">Assign Knowledge Partner</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-
-      <div class="modal-body">
-
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <label class="form-label" for="initial-trl-select">Initial TRL</label>
-            <select id="initial-trl-select" class="form-select">
-              <option value="">-- Select Initial TRL --</option>
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label" for="current-trl-select">Current TRL</label>
-            <select id="current-trl-select" class="form-select">
-              <option value="">-- Select Current TRL --</option>
-            </select>
-          </div>
-
-          <div class="col-12">
-            <label class="form-label" for="assign-trl-select">TRL Level (for knowledge partner selection)</label>
-            <select id="assign-trl-select" class="form-select">
-              <option value="">-- Select TRL --</option>
-            </select>
-          </div>
-        </div>
-
-        <div id="assign-partners-container"></div>
-
-        <div id="assign-modal-error" class="small text-danger mt-2"></div>
-
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="assign-save-btn" onclick="submitAssignment()">Save</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="milestone-modal" tabindex="-1"
-     aria-labelledby="milestone-modal-title" aria-hidden="true"
-     data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="milestone-modal-title">Milestones</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-
-      <div class="modal-body" id="milestone-modal-body"></div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="files-modal" tabindex="-1"
-     aria-labelledby="files-modal-title" aria-hidden="true"
-     data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="files-modal-title">Files</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-
-      <div class="modal-body" id="files-modal-body"></div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-{{ trl_definitions_json|json_script:"trl-data" }}
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
-    new bootstrap.Tooltip(el);
-});
-function getCookie(name) {
-    let cookieValue = null;
-
-    document.cookie.split(';').forEach(c => {
-        c = c.trim();
-        if (c.startsWith(name + '=')) {
-            cookieValue = decodeURIComponent(c.substring(name.length + 1));
-        }
-    });
-
-    return cookieValue;
-}
-
-const csrftoken = getCookie('csrftoken');
-
-let currentApplicationId = null;
-
-const allTrlData = JSON.parse($('#trl-data').text());
-
-function esc(text) {
-    return $('<div>').text(text == null ? '' : text).html();
-}
-
-function getModal(id) {
-    return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
-}
-
-function setMsg($el, colorClass, text) {
-    $el.removeClass('text-success text-danger text-muted')
-       .addClass(colorClass)
-       .text(text);
-}
-
-$('.progress-bar[data-width]').each(function () {
-    $(this).css('width', $(this).data('width') + '%');
-});
-
-$(document).on('click', 'tr.app-row', function (e) {
-    if ($(e.target).closest('.action-cell').length) return;
-    window.location = $(this).data('href');
-});
-
-$(document).on('click', '.js-assign-btn', function () {
-    const $b = $(this);
-    openAssignModal(
-        $b.data('app-id'),
-        $b.data('initial-trl') || null,
-        $b.data('current-trl') || null,
-        $b.data('medtech-type')
-    );
-});
-
-// "Manage Milestones" button
-$(document).on('click', '.js-milestone-btn', function () {
-    openMilestoneModal($(this).data('app-id'));
-});
-
-
-function openAssignModal(applicationId, initialTrlId, currentTrlId, categoryType) {
-    currentApplicationId = applicationId;
-
-    $('#assign-partners-container').empty();
-    $('#assign-modal-error').text('');
-    $('#assign-save-btn').prop('disabled', false);
-
-
-    const filteredTrls = allTrlData.filter(
-        trl => trl.medtech_type === categoryType || trl.medtech_type === ''
-    );
-
-    // Rebuild all three dropdowns
-    fillTrlSelect('#initial-trl-select', filteredTrls, initialTrlId, '-- Select Initial TRL --');
-    fillTrlSelect('#current-trl-select', filteredTrls, currentTrlId, '-- Select Current TRL --');
-    fillTrlSelect('#assign-trl-select', filteredTrls, null, '-- Select TRL --');
-
-    getModal('assign-modal').show();
-}
-
-
-function closeAssignModal() {
-    getModal('assign-modal').hide();
-}
-
-
-function fillTrlSelect(selector, trls, selectedId, placeholder) {
-    const $select = $(selector);
-    if ($select.length === 0) return;
-
-    $select.html(`<option value="">${esc(placeholder)}</option>`);
-
-    trls.forEach(trl => {
-        const isSelected = selectedId && String(trl.id) === String(selectedId);
-
-        $select.append(
-            $('<option></option>')
-                .val(trl.id)
-                .text(trl.name)
-                .prop('selected', !!isSelected)
-        );
-    });
-}
-
-
-// Load partners when a TRL Level is chosen
-$(document).on('change', '#assign-trl-select', function () {
-    const trlId = $(this).val();
-    const $container = $('#assign-partners-container');
-
-    $container.empty();
-    if (!trlId) return;
-
-    $container.html('<p class="text-muted small">Loading partners...</p>');
-
-    $.ajax({
-        url: '/ajax/partners-for-trl/',
-        type: 'GET',
-        dataType: 'json',
-        data: { trl_id: trlId }
-    })
-    .done(function (data) {
-        if (data.error || data.partners.length === 0) {
-            $container.html('<p class="text-muted">No knowledge partners found for this TRL.</p>');
-            return;
-        }
-
-        $container.empty();
-
-        data.partners.forEach(function (partner) {
-            let milestonesHtml = '';
-
-            if (partner.milestone_templates.length === 0) {
-                milestonesHtml = `
-                    <p class="text-muted small mb-0">
-                        No milestone checklist defined for this partner.
-                    </p>
-                `;
-            } else {
-                partner.milestone_templates.forEach(function (t) {
-                    const checkId = `ms-${partner.id}-${t.id}`;
-
-                    milestonesHtml += `
-                        <div class="milestone-row my-2 small" data-template-id="${t.id}">
-
-                            <div class="d-flex align-items-center gap-2">
-                                <input class="form-check-input mt-0 milestone-applicable"
-                                       type="checkbox"
-                                       id="${checkId}"
-                                       checked>
-                                <label class="flex-grow-1 mb-0" for="${checkId}">
-                                    M-${esc(t.sequence)}: ${esc(t.description)}
-                                </label>
-                                <select class="form-select form-select-sm assign-milestone-status" style="width:auto;">
-                                    <option value="notyeststart">Not Yet Started</option>
-                                    <option value="in_progress">In Progress</option>
-                                    <option value="closed">Completed</option>
-                                </select>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card bg-warning text-white mb-4">
+                                    <div class="card-body">Warning Card</div>
+                                    <div class="card-footer d-flex align-items-center justify-content-between">
+                                        <a class="small text-white stretched-link" href="#">View Details</a>
+                                        <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card bg-success text-white mb-4">
+                                    <div class="card-body">Success Card</div>
+                                    <div class="card-footer d-flex align-items-center justify-content-between">
+                                        <a class="small text-white stretched-link" href="#">View Details</a>
+                                        <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card bg-danger text-white mb-4">
+                                    <div class="card-body">Danger Card</div>
+                                    <div class="card-footer d-flex align-items-center justify-content-between">
+                                        <a class="small text-white stretched-link" href="#">View Details</a>
+                                        <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    `;
-                });
-            }
-
-            $container.append(`
-                <div class="border rounded p-3 mb-3">
-                    <div class="form-check">
-                        <input class="form-check-input partner-checkbox"
-                               type="checkbox"
-                               id="partner-check-${partner.id}"
-                               value="${partner.id}">
-                        <label class="form-check-label fw-semibold" for="partner-check-${partner.id}">
-                            ${esc(partner.name)}
-                        </label>
+                        <div class="row">
+                            <div class="col-xl-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <i class="fas fa-chart-area me-1"></i>
+                                        Area Chart Example
+                                    </div>
+                                    <div class="card-body"><canvas id="myAreaChart" width="100%" height="40"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <i class="fas fa-chart-bar me-1"></i>
+                                        Bar Chart Example
+                                    </div>
+                                    <div class="card-body"><canvas id="myBarChart" width="100%" height="40"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <i class="fas fa-table me-1"></i>
+                                DataTable Example
+                            </div>
+                            <div class="card-body">
+                                <table id="datatablesSimple">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Position</th>
+                                            <th>Office</th>
+                                            <th>Age</th>
+                                            <th>Start date</th>
+                                            <th>Salary</th>
+                                        </tr>
+                                    </thead>
+                                    <tfoot>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Position</th>
+                                            <th>Office</th>
+                                            <th>Age</th>
+                                            <th>Start date</th>
+                                            <th>Salary</th>
+                                        </tr>
+                                    </tfoot>
+                                    <tbody>
+                                        <tr>
+                                            <td>Tiger Nixon</td>
+                                            <td>System Architect</td>
+                                            <td>Edinburgh</td>
+                                            <td>61</td>
+                                            <td>2011/04/25</td>
+                                            <td>$320,800</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Garrett Winters</td>
+                                            <td>Accountant</td>
+                                            <td>Tokyo</td>
+                                            <td>63</td>
+                                            <td>2011/07/25</td>
+                                            <td>$170,750</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Ashton Cox</td>
+                                            <td>Junior Technical Author</td>
+                                            <td>San Francisco</td>
+                                            <td>66</td>
+                                            <td>2009/01/12</td>
+                                            <td>$86,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Cedric Kelly</td>
+                                            <td>Senior Javascript Developer</td>
+                                            <td>Edinburgh</td>
+                                            <td>22</td>
+                                            <td>2012/03/29</td>
+                                            <td>$433,060</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Airi Satou</td>
+                                            <td>Accountant</td>
+                                            <td>Tokyo</td>
+                                            <td>33</td>
+                                            <td>2008/11/28</td>
+                                            <td>$162,700</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Brielle Williamson</td>
+                                            <td>Integration Specialist</td>
+                                            <td>New York</td>
+                                            <td>61</td>
+                                            <td>2012/12/02</td>
+                                            <td>$372,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Herrod Chandler</td>
+                                            <td>Sales Assistant</td>
+                                            <td>San Francisco</td>
+                                            <td>59</td>
+                                            <td>2012/08/06</td>
+                                            <td>$137,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Rhona Davidson</td>
+                                            <td>Integration Specialist</td>
+                                            <td>Tokyo</td>
+                                            <td>55</td>
+                                            <td>2010/10/14</td>
+                                            <td>$327,900</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Colleen Hurst</td>
+                                            <td>Javascript Developer</td>
+                                            <td>San Francisco</td>
+                                            <td>39</td>
+                                            <td>2009/09/15</td>
+                                            <td>$205,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Sonya Frost</td>
+                                            <td>Software Engineer</td>
+                                            <td>Edinburgh</td>
+                                            <td>23</td>
+                                            <td>2008/12/13</td>
+                                            <td>$103,600</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jena Gaines</td>
+                                            <td>Office Manager</td>
+                                            <td>London</td>
+                                            <td>30</td>
+                                            <td>2008/12/19</td>
+                                            <td>$90,560</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Quinn Flynn</td>
+                                            <td>Support Lead</td>
+                                            <td>Edinburgh</td>
+                                            <td>22</td>
+                                            <td>2013/03/03</td>
+                                            <td>$342,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Charde Marshall</td>
+                                            <td>Regional Director</td>
+                                            <td>San Francisco</td>
+                                            <td>36</td>
+                                            <td>2008/10/16</td>
+                                            <td>$470,600</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Haley Kennedy</td>
+                                            <td>Senior Marketing Designer</td>
+                                            <td>London</td>
+                                            <td>43</td>
+                                            <td>2012/12/18</td>
+                                            <td>$313,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Tatyana Fitzpatrick</td>
+                                            <td>Regional Director</td>
+                                            <td>London</td>
+                                            <td>19</td>
+                                            <td>2010/03/17</td>
+                                            <td>$385,750</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Michael Silva</td>
+                                            <td>Marketing Designer</td>
+                                            <td>London</td>
+                                            <td>66</td>
+                                            <td>2012/11/27</td>
+                                            <td>$198,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Paul Byrd</td>
+                                            <td>Chief Financial Officer (CFO)</td>
+                                            <td>New York</td>
+                                            <td>64</td>
+                                            <td>2010/06/09</td>
+                                            <td>$725,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Gloria Little</td>
+                                            <td>Systems Administrator</td>
+                                            <td>New York</td>
+                                            <td>59</td>
+                                            <td>2009/04/10</td>
+                                            <td>$237,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bradley Greer</td>
+                                            <td>Software Engineer</td>
+                                            <td>London</td>
+                                            <td>41</td>
+                                            <td>2012/10/13</td>
+                                            <td>$132,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Dai Rios</td>
+                                            <td>Personnel Lead</td>
+                                            <td>Edinburgh</td>
+                                            <td>35</td>
+                                            <td>2012/09/26</td>
+                                            <td>$217,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jenette Caldwell</td>
+                                            <td>Development Lead</td>
+                                            <td>New York</td>
+                                            <td>30</td>
+                                            <td>2011/09/03</td>
+                                            <td>$345,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Yuri Berry</td>
+                                            <td>Chief Marketing Officer (CMO)</td>
+                                            <td>New York</td>
+                                            <td>40</td>
+                                            <td>2009/06/25</td>
+                                            <td>$675,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Caesar Vance</td>
+                                            <td>Pre-Sales Support</td>
+                                            <td>New York</td>
+                                            <td>21</td>
+                                            <td>2011/12/12</td>
+                                            <td>$106,450</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Doris Wilder</td>
+                                            <td>Sales Assistant</td>
+                                            <td>Sidney</td>
+                                            <td>23</td>
+                                            <td>2010/09/20</td>
+                                            <td>$85,600</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Angelica Ramos</td>
+                                            <td>Chief Executive Officer (CEO)</td>
+                                            <td>London</td>
+                                            <td>47</td>
+                                            <td>2009/10/09</td>
+                                            <td>$1,200,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Gavin Joyce</td>
+                                            <td>Developer</td>
+                                            <td>Edinburgh</td>
+                                            <td>42</td>
+                                            <td>2010/12/22</td>
+                                            <td>$92,575</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jennifer Chang</td>
+                                            <td>Regional Director</td>
+                                            <td>Singapore</td>
+                                            <td>28</td>
+                                            <td>2010/11/14</td>
+                                            <td>$357,650</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Brenden Wagner</td>
+                                            <td>Software Engineer</td>
+                                            <td>San Francisco</td>
+                                            <td>28</td>
+                                            <td>2011/06/07</td>
+                                            <td>$206,850</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Fiona Green</td>
+                                            <td>Chief Operating Officer (COO)</td>
+                                            <td>San Francisco</td>
+                                            <td>48</td>
+                                            <td>2010/03/11</td>
+                                            <td>$850,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Shou Itou</td>
+                                            <td>Regional Marketing</td>
+                                            <td>Tokyo</td>
+                                            <td>20</td>
+                                            <td>2011/08/14</td>
+                                            <td>$163,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Michelle House</td>
+                                            <td>Integration Specialist</td>
+                                            <td>Sidney</td>
+                                            <td>37</td>
+                                            <td>2011/06/02</td>
+                                            <td>$95,400</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Suki Burks</td>
+                                            <td>Developer</td>
+                                            <td>London</td>
+                                            <td>53</td>
+                                            <td>2009/10/22</td>
+                                            <td>$114,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Prescott Bartlett</td>
+                                            <td>Technical Author</td>
+                                            <td>London</td>
+                                            <td>27</td>
+                                            <td>2011/05/07</td>
+                                            <td>$145,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Gavin Cortez</td>
+                                            <td>Team Leader</td>
+                                            <td>San Francisco</td>
+                                            <td>22</td>
+                                            <td>2008/10/26</td>
+                                            <td>$235,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Martena Mccray</td>
+                                            <td>Post-Sales support</td>
+                                            <td>Edinburgh</td>
+                                            <td>46</td>
+                                            <td>2011/03/09</td>
+                                            <td>$324,050</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Unity Butler</td>
+                                            <td>Marketing Designer</td>
+                                            <td>San Francisco</td>
+                                            <td>47</td>
+                                            <td>2009/12/09</td>
+                                            <td>$85,675</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Howard Hatfield</td>
+                                            <td>Office Manager</td>
+                                            <td>San Francisco</td>
+                                            <td>51</td>
+                                            <td>2008/12/16</td>
+                                            <td>$164,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Hope Fuentes</td>
+                                            <td>Secretary</td>
+                                            <td>San Francisco</td>
+                                            <td>41</td>
+                                            <td>2010/02/12</td>
+                                            <td>$109,850</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Vivian Harrell</td>
+                                            <td>Financial Controller</td>
+                                            <td>San Francisco</td>
+                                            <td>62</td>
+                                            <td>2009/02/14</td>
+                                            <td>$452,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Timothy Mooney</td>
+                                            <td>Office Manager</td>
+                                            <td>London</td>
+                                            <td>37</td>
+                                            <td>2008/12/11</td>
+                                            <td>$136,200</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jackson Bradshaw</td>
+                                            <td>Director</td>
+                                            <td>New York</td>
+                                            <td>65</td>
+                                            <td>2008/09/26</td>
+                                            <td>$645,750</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Olivia Liang</td>
+                                            <td>Support Engineer</td>
+                                            <td>Singapore</td>
+                                            <td>64</td>
+                                            <td>2011/02/03</td>
+                                            <td>$234,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bruno Nash</td>
+                                            <td>Software Engineer</td>
+                                            <td>London</td>
+                                            <td>38</td>
+                                            <td>2011/05/03</td>
+                                            <td>$163,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Sakura Yamamoto</td>
+                                            <td>Support Engineer</td>
+                                            <td>Tokyo</td>
+                                            <td>37</td>
+                                            <td>2009/08/19</td>
+                                            <td>$139,575</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Thor Walton</td>
+                                            <td>Developer</td>
+                                            <td>New York</td>
+                                            <td>61</td>
+                                            <td>2013/08/11</td>
+                                            <td>$98,540</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Finn Camacho</td>
+                                            <td>Support Engineer</td>
+                                            <td>San Francisco</td>
+                                            <td>47</td>
+                                            <td>2009/07/07</td>
+                                            <td>$87,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Serge Baldwin</td>
+                                            <td>Data Coordinator</td>
+                                            <td>Singapore</td>
+                                            <td>64</td>
+                                            <td>2012/04/09</td>
+                                            <td>$138,575</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Zenaida Frank</td>
+                                            <td>Software Engineer</td>
+                                            <td>New York</td>
+                                            <td>63</td>
+                                            <td>2010/01/04</td>
+                                            <td>$125,250</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Zorita Serrano</td>
+                                            <td>Software Engineer</td>
+                                            <td>San Francisco</td>
+                                            <td>56</td>
+                                            <td>2012/06/01</td>
+                                            <td>$115,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jennifer Acosta</td>
+                                            <td>Junior Javascript Developer</td>
+                                            <td>Edinburgh</td>
+                                            <td>43</td>
+                                            <td>2013/02/01</td>
+                                            <td>$75,650</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Cara Stevens</td>
+                                            <td>Sales Assistant</td>
+                                            <td>New York</td>
+                                            <td>46</td>
+                                            <td>2011/12/06</td>
+                                            <td>$145,600</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Hermione Butler</td>
+                                            <td>Regional Director</td>
+                                            <td>London</td>
+                                            <td>47</td>
+                                            <td>2011/03/21</td>
+                                            <td>$356,250</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Lael Greer</td>
+                                            <td>Systems Administrator</td>
+                                            <td>London</td>
+                                            <td>21</td>
+                                            <td>2009/02/27</td>
+                                            <td>$103,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Jonas Alexander</td>
+                                            <td>Developer</td>
+                                            <td>San Francisco</td>
+                                            <td>30</td>
+                                            <td>2010/07/14</td>
+                                            <td>$86,500</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Shad Decker</td>
+                                            <td>Regional Director</td>
+                                            <td>Edinburgh</td>
+                                            <td>51</td>
+                                            <td>2008/11/13</td>
+                                            <td>$183,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Michael Bruce</td>
+                                            <td>Javascript Developer</td>
+                                            <td>Singapore</td>
+                                            <td>29</td>
+                                            <td>2011/06/27</td>
+                                            <td>$183,000</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Donna Snider</td>
+                                            <td>Customer Support</td>
+                                            <td>New York</td>
+                                            <td>27</td>
+                                            <td>2011/01/25</td>
+                                            <td>$112,000</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-
-                    <div id="milestones-for-${partner.id}" class="milestones-block d-none mt-2 ps-4">
-                        ${milestonesHtml}
+                </main>
+                <footer class="py-4 bg-light mt-auto">
+                    <div class="container-fluid px-4">
+                        <div class="d-flex align-items-center justify-content-between small">
+                            <div class="text-muted">Copyright &copy; Your Website 2023</div>
+                            <div>
+                                <a href="#">Privacy Policy</a>
+                                &middot;
+                                <a href="#">Terms &amp; Conditions</a>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `);
-        });
-    })
-    .fail(function () {
-        $container.html('<p class="text-danger">Could not load partners. Try again.</p>');
-    });
-});
-
-
-$(document).on('change', '.milestone-applicable', function () {
-    const $row = $(this).closest('.milestone-row');
-
-    $row.find('.assign-milestone-status').prop('disabled', !this.checked);
-    $row.toggleClass('text-muted', !this.checked);
-});
-
-
-$(document).on('change', '.partner-checkbox', function () {
-    $('#milestones-for-' + this.value).toggleClass('d-none', !this.checked);
-});
-
-
-function submitAssignment() {
-    const trlId = $('#assign-trl-select').val();
-    const initialTrlId = $('#initial-trl-select').val();
-    const currentTrlId = $('#current-trl-select').val();
-    const $errorDiv = $('#assign-modal-error');
-    const $saveBtn = $('#assign-save-btn');
-
-    $errorDiv.text('');
-
-    if (!currentApplicationId) {
-        $errorDiv.text('No application selected.');
-        return;
-    }
-    if (!initialTrlId) {
-        $errorDiv.text('Please select the Initial TRL.');
-        return;
-    }
-    if (!currentTrlId) {
-        $errorDiv.text('Please select the Current TRL.');
-        return;
-    }
-
-    const $checkboxes = $('.partner-checkbox:checked');
-
-    // Partners are needed only if a TRL Level was chosen
-    if (trlId && $checkboxes.length === 0) {
-        $errorDiv.text('Please select at least one knowledge partner.');
-        return;
-    }
-
-    const partners = [];
-    let missingMilestones = false;
-
-    $checkboxes.each(function () {
-        const partnerId = $(this).val();
-        const $rows = $(`#milestones-for-${partnerId} .milestone-row`);
-        const milestones = [];
-
-        $rows.each(function () {
-            // Skip milestones that are not applicable
-            if (!$(this).find('.milestone-applicable').is(':checked')) {
-                return;   // same as "continue" inside jQuery .each()
-            }
-
-            milestones.push({
-                template_id: $(this).attr('data-template-id'),
-                status: $(this).find('.assign-milestone-status').val()
-            });
-        });
-
-        // Partner has milestones, but none are ticked
-        if ($rows.length > 0 && milestones.length === 0) {
-            missingMilestones = true;
-            return false;   // stop the loop
-        }
-
-        partners.push({ partner_id: partnerId, milestones: milestones });
-    });
-
-    if (missingMilestones) {
-        $errorDiv.text('Please tick at least one applicable milestone for each selected partner.');
-        return;
-    }
-
-    $saveBtn.prop('disabled', true);   // stops double-click saving twice
-
-    $.ajax({
-        url: '/ajax/assign-trl-partner/',
-        type: 'POST',
-        contentType: 'application/json',
-        dataType: 'json',
-        headers: { 'X-CSRFToken': csrftoken },
-        data: JSON.stringify({
-            application_id: currentApplicationId,
-            trl_id: trlId || null,
-            initial_trl_id: initialTrlId,
-            current_trl_id: currentTrlId,
-            partners: partners
-        })
-    })
-    .done(function (data) {
-        if (data.error) {
-            $errorDiv.text(data.error);
-            $saveBtn.prop('disabled', false);
-            return;
-        }
-        closeAssignModal();
-        location.reload();
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        $errorDiv.text(msg || 'Something went wrong. Try again.');
-        $saveBtn.prop('disabled', false);
-    });
-}
-
-
-let stageAdvanced = false;
-let milestoneAppId = null;   // application currently open in the popup
-
-function openMilestoneModal(applicationId) {
-    stageAdvanced = false;
-    milestoneAppId = applicationId;
-
-    $('#milestone-modal-title').text('Milestones');
-    $('#milestone-modal-body').html(`
-        <div id="ms-assignments">
-            <div class="text-center py-4">
-                <div class="spinner-border" role="status" aria-label="Loading"></div>
+                </footer>
             </div>
         </div>
-    `);
-
-    getModal('milestone-modal').show();
-
-    $.ajax({
-        url: '/ajax/application-milestones/',
-        type: 'GET',
-        dataType: 'json',
-        data: { application_id: applicationId }
-    })
-    .done(function (data) {
-        $('#milestone-modal-title').text('Milestones: ' + data.reference_no + ' - ' + data.technology_name);
-
-        if (data.assignments.length === 0) {
-            const emptyMsg = data.is_admin
-                ? 'No knowledge partner assigned yet.'
-                : 'No milestones are assigned to you for this application.';
-
-            $('#ms-assignments').html(`<div class="alert alert-info mb-3">${esc(emptyMsg)}</div>`);
-            return;
-        }
-
-        let html = '';
-
-        data.assignments.forEach(function (a) {
-            html += `
-                <div class="mb-4 pb-2 border-bottom" data-assignment-id="${a.assignment_id}">
-                    <h6 class="mb-1">${esc(a.partner_name)}</h6>
-                    <p class="text-muted small mb-2">
-                        ${esc(a.trl_name)} | Assignment: ${esc(a.assignment_status)}
-                    </p>
-
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered align-middle mb-3">
-                            <colgroup>
-                                <col style="width:8%">
-                                <col>
-                                <col style="width:170px">
-                                <col style="width:250px">
-                                <col style="width:120px">
-                            </colgroup>
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Label</th>
-                                    <th>Milestones</th>
-                                    <th>Status</th>
-                                    <th>Remarks</th>
-                                    <th>Completion Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            if (a.milestones.length === 0) {
-                html += `<tr><td colspan="5" class="text-muted">No milestones for this partner.</td></tr>`;
-            }
-
-            a.milestones.forEach(function (m) {
-                let statusCell;
-                let remarksCell;
-
-                if (data.can_edit) {
-                    statusCell = `<select class="form-select form-select-sm ms-status-select"
-                                          data-milestone-id="${m.id}">`;
-
-                    data.status_choices.forEach(function (c) {
-                        const sel = c.value === m.status ? 'selected' : '';
-                        statusCell += `<option value="${esc(c.value)}" ${sel}>${esc(c.label)}</option>`;
-                    });
-
-                    statusCell += `</select>`;
-
-                    remarksCell = `<textarea class="form-control form-control-sm ms-remarks-input"
-                                             rows="2"
-                                             data-milestone-id="${m.id}"
-                                             placeholder="Remarks...">${esc(m.remarks)}</textarea>`;
-                } else {
-                    statusCell = esc(m.status_display);
-                    remarksCell = m.remarks
-                        ? esc(m.remarks)
-                        : '<span class="text-muted">&mdash;</span>';
-                }
-
-                html += `
-                    <tr>
-                        <td>${esc(m.label)}</td>
-                        <td>${esc(m.description)}</td>
-                        <td>${statusCell}</td>
-                        <td>${remarksCell}</td>
-                        <td class="ms-date">${esc(m.date_achieved)}</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table></div>`;
-
-            if (data.can_edit) {
-                html += `
-                    <div class="d-flex align-items-center justify-content-end gap-2">
-                        <span class="ms-msg small"></span>
-                        <a href="#" class="small ms-history-toggle">View history</a>
-                        <button type="button" class="btn btn-success btn-sm ms-save-btn">Save</button>
-                    </div>
-
-                    <div class="ms-history-body small mt-2 d-none"></div>
-                `;
-            }
-
-            html += `</div>`;
-        });
-
-        $('#ms-assignments').html(html);
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        $('#ms-assignments').html(
-            `<div class="alert alert-warning mb-3">${esc(msg || 'Failed to load milestones.')}</div>`
-        );
-    });
-}
-
-// "Manage Files" button
-let filesAppId = null;   // application currently open in the Files popup
-
-$(document).on('click', '.js-files-btn', function () {
-    openFilesModal($(this).data('app-id'), $(this).data('ref'));
-});
-
-function openFilesModal(applicationId, referenceNo) {
-    filesAppId = applicationId;
-
-    $('#files-modal-title').text(referenceNo ? 'Files: ' + referenceNo : 'Files');
-    $('#files-modal-body').html('<div id="files-attachments"></div>');
-
-    getModal('files-modal').show();
-    loadAttachments();
-}
-
-// Clear the popup when it closes
-document.getElementById('files-modal').addEventListener('hidden.bs.modal', function () {
-    $('#files-modal-body').empty();
-    filesAppId = null;
-});
-
-
-/* =========================================================================
-   Attachments (inside the milestones popup)
-   ========================================================================= */
-
-const ATTACH_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip';
-const ATTACH_MAX_MB = 10;
-
-const ROLE_BADGE = {
-    admin: 'text-bg-primary',
-    partner: 'text-bg-info',
-    innovator: 'text-bg-success'
-};
-
-
-function loadAttachments(successMsg) {
-    const $box = $('#files-attachments');
-    $box.html('<p class="text-muted small mb-0">Loading attachments...</p>');
-
-    $.ajax({
-        url: '/ajax/trl-attachments/',
-        type: 'GET',
-        dataType: 'json',
-        data: { application_id: filesAppId }
-    })
-    .done(function (data) {
-        let html = '';
-
-        if (data.stages.length === 0) {
-            html += '<p class="text-muted small mb-0">No TRL stage has started yet, so files cannot be uploaded.</p>';
-            $box.html(html);
-            return;
-        }
-
-        // ---- Upload form ----
-        let stageOptions = '';
-        data.stages.forEach(function (s) {
-            stageOptions += `<option value="${s.stage_id}">${esc(s.trl_name)}</option>`;
-        });
-
-        html += `
-            <div class="border rounded p-3 mb-3 bg-body-tertiary">
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label small mb-1" for="att-stage">TRL stage</label>
-                        <select class="form-select form-select-sm" id="att-stage">${stageOptions}</select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small mb-1" for="att-file">File (max ${ATTACH_MAX_MB} MB)</label>
-                        <input type="file" class="form-control form-control-sm" id="att-file" accept="${ATTACH_ACCEPT}">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small mb-1" for="att-note">Description <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="att-note" maxlength="255"
-                               placeholder="e.g. Test report v2" required>
-                    </div>
-                    <div class="col-md-2 d-grid">
-                        <button type="button" class="btn btn-primary btn-sm" id="att-upload-btn">Upload</button>
-                    </div>
-                </div>
-                <div class="small mt-2" id="att-msg"></div>
-            </div>
-        `;
-
-        // ---- File list, one block per TRL stage ----
-        data.stages.forEach(function (s) {
-            html += `<div class="mb-3">
-                        <div class="fw-semibold small mb-1">
-                            ${esc(s.trl_name)}
-                            <span class="badge rounded-pill text-bg-light border ms-1">${s.files.length}</span>
-                        </div>`;
-
-            if (s.files.length === 0) {
-                html += '<p class="text-muted small mb-0">No files yet.</p></div>';
-                return;
-            }
-
-            html += `
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle small mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>File</th>
-                                <th>Description</th>
-                                <th>Uploaded by</th>
-                                <th>Date</th>
-                                <th style="width:70px"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            s.files.forEach(function (f) {
-                const badge = ROLE_BADGE[f.uploader_role] || 'text-bg-secondary';
-                const deleteBtn = f.can_delete
-                    ? `<button type="button" class="btn btn-outline-danger btn-sm att-delete-btn"
-                               data-attachment-id="${f.id}">Delete</button>`
-                    : '';
-
-                html += `
-                    <tr>
-                        <td class="text-break"><a href="${esc(f.download_url)}">${esc(f.name)}</a></td>
-                        <td class="text-break">${f.note ? esc(f.note) : '<span class="text-muted">&mdash;</span>'}</td>
-                        <td>
-                            ${esc(f.uploaded_by)}
-                            <span class="badge ${badge} ms-1">${esc(f.uploader_role_display)}</span>
-                        </td>
-                        <td class="text-nowrap">${esc(f.uploaded_at)}</td>
-                        <td>${deleteBtn}</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table></div></div>`;
-        });
-
-        $box.html(html);
-
-        if (successMsg) {
-            setMsg($('#att-msg'), 'text-success', successMsg, 3);
-        }
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        $box.html(`<p class="text-danger small mb-0">${esc(msg || 'Could not load attachments.')}</p>`);
-    });
-}
-
-
-// Upload a file
-$(document).on('click', '#att-upload-btn', function () {
-    const $btn = $(this);
-    const $msg = $('#att-msg');
-    const file = $('#att-file')[0].files[0];
-
-    if (!file) {
-        setMsg($msg, 'text-danger', 'Please choose a file.',3);
-        return;
-    }
-    if (file.size > ATTACH_MAX_MB * 1024 * 1024) {
-        setMsg($msg, 'text-danger', `File is too big. Maximum size is ${ATTACH_MAX_MB} MB.`,3);
-        return;
-    }
-
-    const note = $('#att-note').val().trim();
-
-    if (!note) {
-        setMsg($msg, 'text-danger', 'Please enter a description.',3);
-        $('#att-note').focus();
-        return;
-    }
-    const formData = new FormData();
-    formData.append('trl_stage_id', $('#att-stage').val());
-    formData.append('file', file);
-    formData.append('note', note);
-
-    $btn.prop('disabled', true);
-    setMsg($msg, 'text-muted', 'Uploading...');
-
-    $.ajax({
-        url: '/ajax/trl-attachments/upload/',
-        type: 'POST',
-        data: formData,
-        processData: false,    // needed for file upload
-        contentType: false,    // needed for file upload
-        headers: { 'X-CSRFToken': csrftoken }
-    })
-    .done(function () {
-        loadAttachments('File uploaded.');
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        setMsg($msg, 'text-danger', msg || 'Upload failed. Try again.');
-        $btn.prop('disabled', false);
-    });
-});
-
-
-// Delete a file
-$(document).on('click', '.att-delete-btn', function () {
-    if (!confirm('Delete this file?')) return;
-
-    const $btn = $(this);
-    $btn.prop('disabled', true);
-
-    $.ajax({
-        url: '/ajax/trl-attachments/delete/',
-        type: 'POST',
-        dataType: 'json',
-        headers: { 'X-CSRFToken': csrftoken },
-        data: { attachment_id: $btn.data('attachment-id') }
-    })
-    .done(function () {
-        loadAttachments('File deleted.');
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        alert(msg || 'Could not delete the file.');
-        $btn.prop('disabled', false);
-    });
-});
-
-
-document.getElementById('milestone-modal').addEventListener('hidden.bs.modal', function () {
-    $('#milestone-modal-body').empty();
-
-    if (stageAdvanced) {
-        stageAdvanced = false;
-        location.reload(); 
-    }
-});
-
-
-$(document).on('click', '.ms-save-btn', function () {
-    const $btn = $(this);
-    const $block = $btn.closest('[data-assignment-id]');
-    const $msg = $block.find('.ms-msg');
-    const assignmentId = $block.data('assignment-id');
-
-    const milestones = [];
-    $block.find('.ms-status-select').each(function () {
-        const milestoneId = $(this).data('milestone-id');
-
-        milestones.push({
-            milestone_id: milestoneId,
-            status: $(this).val(),
-            remarks: $block.find(`.ms-remarks-input[data-milestone-id="${milestoneId}"]`).val()
-        });
-    });
-
-    $btn.prop('disabled', true);
-    setMsg($msg, 'text-muted', 'Saving...');
-
-    $.ajax({
-        url: '/ajax/update-assignment-milestones/',
-        type: 'POST',
-        contentType: 'application/json',
-        dataType: 'json',
-        headers: { 'X-CSRFToken': csrftoken },
-        data: JSON.stringify({
-            assignment_id: assignmentId,
-            milestones: milestones
-        })
-    })
-    .done(function (data) {
-        data.milestones.forEach(function (m) {
-            $block.find(`.ms-status-select[data-milestone-id="${m.id}"]`)
-                  .closest('tr')
-                  .find('.ms-date')
-                  .text(m.date_achieved);
-        });
-
-        const $history = $block.find('.ms-history-body');
-        if (!$history.hasClass('d-none')) {
-            const $toggle = $block.find('.ms-history-toggle');
-            $toggle.trigger('click');   // close
-            $toggle.trigger('click');   // open again (fresh data)
-        }
-
-        if (data.stage_completed) {
-            stageAdvanced = true;
-            setMsg($msg, 'text-success', 'Saved. TRL stage completed!');
-        } else {
-            setMsg($msg, 'text-success', 'Saved');
-            setTimeout(function () { $msg.text(''); }, 2000);
-        }
-
-        $btn.prop('disabled', false);
-    })
-    .fail(function (xhr) {
-        const msg = xhr.responseJSON && xhr.responseJSON.error;
-        setMsg($msg, 'text-danger', msg || 'Failed. Try again.');
-        $btn.prop('disabled', false);
-    });
-});
-
-
-$(document).on('click', '.ms-history-toggle', function (e) {
-    e.preventDefault();
-
-    const $link = $(this);
-    const $block = $link.closest('[data-assignment-id]');
-    const $body = $block.find('.ms-history-body');
-    const assignmentId = $block.data('assignment-id');
-
-    if (!$body.hasClass('d-none')) {
-        $body.addClass('d-none').empty();
-        $link.text('View history');
-        return;
-    }
-
-    $link.text('Hide history');
-    $body.removeClass('d-none').html('<span class="text-muted">Loading...</span>');
-
-    $.ajax({
-        url: '/ajax/assignment-history/',
-        type: 'GET',
-        dataType: 'json',
-        data: { assignment_id: assignmentId }
-    })
-    .done(function (data) {
-        if (data.logs.length === 0) {
-            $body.html('<span class="text-muted">No changes recorded yet.</span>');
-            return;
-        }
-
-        let rows = '<ul class="list-unstyled mb-0">';
-        data.logs.forEach(function (log) {
-            const what = log.milestone_label
-                ? `${esc(log.field_changed)} (${esc(log.milestone_label)})`
-                : esc(log.field_changed);
-
-            rows += `
-                <li class="mb-1">
-                    <strong>${esc(log.changed_by)}:</strong> changed ${what}
-                    from "<em>${esc(log.old_value)}</em>" to "<em>${esc(log.new_value)}</em>"
-                    &middot; <span class="text-muted">${esc(log.changed_at)}</span>
-                </li>
-            `;
-        });
-        rows += '</ul>';
-
-        $body.html(rows);
-    })
-    .fail(function () {
-        $body.html('<span class="text-danger">Could not load history.</span>');
-    });
-});
-
-
-function setMsg($el, colorClass, text, hideAfterSeconds) {
-    // Stop any old timer on this element
-    clearTimeout($el.data('hideTimer'));
-
-    $el.removeClass('text-success text-danger text-muted')
-       .addClass(colorClass)
-       .text(text);
-
-    // If seconds are given, clear the message after that time
-    if (hideAfterSeconds) {
-        const timer = setTimeout(function () {
-            $el.text('');
-        }, hideAfterSeconds * 1000);
-
-        $el.data('hideTimer', timer);
-    }
-}
-$(function () {
-    // Auto-hide alerts after 3 seconds
-    $(".alert.auto-dismiss").each(function () {
-      const alertEl = this;
-      setTimeout(function () {
-        bootstrap.Alert.getOrCreateInstance(alertEl).close();
-      }, 3000);
-    });
-  });
-
-
-  $(function () {
-    const $btn = $("#exportBtn");
-    if (!$btn.length) return;
-
-    const $spinner = $("#exportSpinner");
-    const $text = $("#exportText");
-
-    function setLoading(isLoading) {
-      $btn.prop("disabled", isLoading);
-      $spinner.toggleClass("d-none", !isLoading);
-      $text.text(isLoading ? "Exporting..." : "Export CSV");
-    }
-
-    // Show a bottom-right alert that hides after 3 seconds
-    function showMessage(text, type) {
-      const $alert = $(
-        '<div class="alert alert-dismissible fade show shadow mb-2" role="alert">' +
-          '<span></span>' +
-          '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
-        '</div>'
-      );
-      $alert.addClass("alert-" + (type || "danger"));
-      $alert.find("span").text(text);   // .text() keeps it safe from HTML injection
-      $("#messageArea").append($alert);
-
-      setTimeout(function () {
-        bootstrap.Alert.getOrCreateInstance($alert[0]).close();
-      }, 3000);
-    }
-
-    $btn.on("click", function () {
-      setLoading(true);
-
-      const params = $btn.closest("form").serialize();
-      const url = $btn.data("url") + "?" + params;
-
-      $.ajax({
-        url: url,
-        method: "GET",
-        xhrFields: { responseType: "blob" },
-
-        success: function (blob, status, xhr) {
-          // Safety check: make sure we really got a CSV
-          const type = xhr.getResponseHeader("Content-Type") || "";
-          if (!type.includes("text/csv")) {
-            showMessage("Export failed. Please try again.");
-            return;
-          }
-
-          let filename = "applications.csv";
-          const disposition = xhr.getResponseHeader("Content-Disposition") || "";
-          const match = disposition.match(/filename="?([^"]+)"?/);
-          if (match) filename = match[1];
-
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          URL.revokeObjectURL(link.href);
-        },
-
-        error: function (xhr) {
-          const fallback = "Export failed. Please try again.";
-          const blob = xhr.response;
-
-          // No response at all (for example, the internet is down)
-          if (!(blob instanceof Blob)) {
-            showMessage(fallback);
-            return;
-          }
-
-          // The error came back as a blob, so read it as text, then as JSON
-          blob.text()
-            .then(function (body) {
-              const data = JSON.parse(body);
-              showMessage(data.error || fallback);
-            })
-            .catch(function () {
-              showMessage(fallback);
-            });
-        },
-
-        complete: function () {
-          setLoading(false);
-        }
-      });
-    });
-  });
-
-
-</script>
-{% endblock %}
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+        <script src="{% static 'sbadmin/js/scripts.js' %}"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js" crossorigin="anonymous"></script>
+        <script src="assets/demo/chart-area-demo.js"></script>
+        <script src="assets/demo/chart-bar-demo.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/umd/simple-datatables.min.js" crossorigin="anonymous"></script>
+        <script src="{% static 'sbadmin/js/datatables-simple-demo.js' %}"></script>
+    </body>
+</html>
