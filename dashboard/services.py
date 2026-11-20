@@ -1,16 +1,9 @@
-"""
-Aggregation/reporting queries for the dashboard.
-
-Kept separate from views.py so the same functions can be:
-  - unit-tested independently of HTTP
-  - reused by both the HTML dashboard views and any future API/export command
-"""
-from django.db.models import Avg, Count, F, ExpressionWrapper, DurationField,Q
+from django.db.models import (Avg,Count,F,ExpressionWrapper,DurationField,Q,Exists,OuterRef,)
 from django.db.models.functions import TruncMonth
 from datetime import date
 from django.utils.dateparse import parse_date
 from django.db.models import Q, Count
-from core.models import Application, KnowledgePartner, TRLDefinition,KnowledgePartnerAssignment,Milestone
+from core.models import Application
 
 def _to_date(text):
     """'2024-03-15' -> date(2024, 3, 15). Returns None if empty or wrong."""
@@ -19,25 +12,12 @@ def _to_date(text):
     except ValueError:
         return None
 
-    
 def kpi_summary(queryset=None):
-
     qs = queryset if queryset is not None else Application.objects.all()
-
     total = qs.count()
-
-    in_progress = qs.filter(
-        status=Application.ApplicationStatus.IN_PROGRESS
-    ).count()
-
-    closed = qs.filter(
-        status=Application.ApplicationStatus.CLOSED
-    ).count()
-
-    completed = qs.filter(
-        status=Application.ApplicationStatus.COMPLTED
-    ).count()
-
+    in_progress = qs.filter(status=Application.ApplicationStatus.IN_PROGRESS).count()
+    closed = qs.filter(status=Application.ApplicationStatus.CLOSED).count()
+    completed = qs.filter(status=Application.ApplicationStatus.COMPLTED).count()
     return {
         "total_application": total,
         "in_progress": in_progress,
@@ -45,12 +25,6 @@ def kpi_summary(queryset=None):
         "completed": completed,
     }
 
-
-def applications_by_status(queryset=None):
-    qs = queryset if queryset is not None else Application.objects.all()
-    rows = qs.values("status").annotate(count=Count("id")).order_by("-count")
-    label_map = dict(Application.ApplicationStatus.choices)
-    return [{"label": label_map.get(r["status"], r["status"]), "value": r["count"]} for r in rows]
 
 def applications_by_medtech_type(queryset=None):
     qs = queryset if queryset is not None else Application.objects.all()
@@ -64,15 +38,6 @@ def applications_by_risk_class(queryset=None):
     rows = qs.values("risk_classification").annotate(count=Count("id")).order_by("risk_classification")
     label_map = dict(Application.RiskClass.choices)
     return [{"label": label_map.get(r["risk_classification"], r["risk_classification"]), "value": r["count"]} for r in rows]
-
-
-def applications_by_knowledge_partner():
-    rows = (
-        KnowledgePartner.objects.annotate(count=Count("assignments", distinct=True))
-        .values("short_code", "count")
-        .order_by("-count")
-    )
-    return [{"label": r["short_code"], "value": r["count"]} for r in rows]
 
 
 def get_base_queryset(user):
@@ -95,16 +60,61 @@ def get_base_queryset(user):
     # Anyone else: nothing
     return Application.objects.none()
 
-def apply_dashboard_filters(request, include_trl=True, include_medtech_type=True):
-    qs = get_base_queryset(request.user)
 
-    status = request.GET.get("status")
-    medtech_type = request.GET.get("medtech_type")
-    risk = request.GET.get("risk_classification")
-    partner = request.GET.get("partner")
+def get_user_applications(user):
+    qs = Application.objects.all()
+
+    # Superuser and Admin roles can see all applications
+    if user.is_superuser or user.role in (
+        user.Role.DELEGATED_ADMIN,
+        user.Role.MM_SECRETARIAT,
+    ):
+        return qs
+
+    # Support Partner
+    if user.role == user.Role.SUPPORT_PARTNER:
+
+        if not user.knowledge_partner_id:
+            return qs.none()
+
+        return qs.filter(
+            quantifiable_deliverables__knowledge_partner_id=
+            user.knowledge_partner_id
+        ).distinct()
+
+    # Innovator
+    if user.role == user.Role.INNOVATOR:
+
+        if not user.applicant_id:
+            return qs.none()
+
+        return qs.filter(
+            applicant_id=user.applicant_id
+        )
+
+    return qs.none()
+
+
+def apply_dashboard_filters(
+    request,
+    include_trl=True,
+    include_medtech_type=True,
+    include_subtype=False,
+    include_support=False,
+    include_deliverable=False,
+):
+    qs = get_user_applications(request.user)
+
+    status = request.GET.get("status", "")
+    medtech_type = request.GET.get("medtech_type", "")
+    subtype = request.GET.get("subtype", "")
+    risk = request.GET.get("risk_classification", "")
+    partner = request.GET.get("partner", "")
+    support_option = request.GET.get("support_option", "")
+    deliverable = request.GET.get("deliverable", "")
     date_from = _to_date(request.GET.get("date_from"))
     date_to = _to_date(request.GET.get("date_to"))
-    by_reference = request.GET.get("by_reference")
+    by_reference = request.GET.get("by_reference", "").strip()
     trl_from = request.GET.get("trl_from", "")
     trl_to = request.GET.get("trl_to", "")
 
@@ -116,17 +126,42 @@ def apply_dashboard_filters(request, include_trl=True, include_medtech_type=True
         )
 
     if status:
-        qs = qs.filter(status=status)
+        valid_statuses = dict(Application.ApplicationStatus.choices)
+
+        if status in valid_statuses:
+            qs = qs.filter(status=status)
 
     if include_medtech_type and medtech_type:
-        qs = qs.filter(medtech_type=medtech_type)
+        valid_types = dict(Application.MedTechType.choices)
+
+        if medtech_type in valid_types:
+            qs = qs.filter(medtech_type=medtech_type)
+
+    if include_subtype and subtype:
+        valid_subtypes = dict(Application.MedTechSubCategoryType.choices)
+
+        if subtype in valid_subtypes:
+            qs = qs.filter(medtech_subtype=subtype)
 
     if risk:
-        qs = qs.filter(risk_classification=risk)
+        valid_risks = dict(Application.RiskClass.choices)
+
+        if risk in valid_risks:
+            qs = qs.filter(risk_classification=risk)
 
     if partner:
+        qs = qs.filter(trl_stages__partner_assignments__partner__short_code=partner)
+
+    if include_support and support_option.isdigit():
         qs = qs.filter(
-            trl_stages__partner_assignments__partner__short_code=partner
+            application_supports__support_option_id=int(support_option)
+        )
+
+    if include_deliverable and deliverable.isdigit():
+        qs = qs.filter(
+            quantifiable_deliverables__quantifiable_deliverable_id=int(
+                deliverable
+            )
         )
 
     if date_from or date_to:
@@ -152,106 +187,38 @@ def apply_dashboard_filters(request, include_trl=True, include_medtech_type=True
 
     return qs.distinct()
 
-def get_trl_movement(request):
-    # All filters EXCEPT the TRL ones
-    qs = apply_dashboard_filters(request)
 
-    rows = list(
-        qs.filter(initial_trl__isnull=False, current_trl__isnull=False)
-          .values("initial_trl__level", "current_trl__level")
-          .annotate(total=Count("id", distinct=True))
-          .order_by("initial_trl__level", "current_trl__level")
-    )
+def category_wise_portfolio(queryset=None):
+    qs = queryset if queryset is not None else Application.objects.all()
+    category_data = []
+    for category_value, category_label in Application.MedTechType.choices:
+        category_qs = qs.filter(medtech_type=category_value)
+        received = category_qs.count()
+        tac_discussed = category_qs.filter(tac_meetings__isnull=False).distinct().count()
+        closed = category_qs.filter(status=Application.ApplicationStatus.CLOSED).count()
 
-    params = request.GET.copy()
-    params.pop("page", None)
+        completed = category_qs.filter(status=Application.ApplicationStatus.COMPLTED).count()
+        in_process = category_qs.filter(status=Application.ApplicationStatus.IN_PROGRESS).count()
 
-    for row in rows:
-        row["from_level"] = row["initial_trl__level"]
-        row["to_level"] = row["current_trl__level"]
-        row["steps"] = row["to_level"] - row["from_level"]
+        closed_percent = closed / received * 100 if received else 0
+        completed_percent = completed / received * 100 if received else 0
+        progress_percent = in_process / received * 100 if received else 0
 
-        params["trl_from"] = row["from_level"]
-        params["trl_to"] = row["to_level"]
-        row["url"] = "?" + params.urlencode()
-
-    return rows
-
-
-def trlprogresstracker(refnumber):
-    application = Application.objects.filter(reference_no=refnumber).first()
-    if not application or not application.current_trl:
-        return []
-
-    current_level = application.current_trl.level
-    initial_level = application.initial_trl.level if application.initial_trl else 1
-    partners = KnowledgePartner.objects.filter(is_active=True)
-
-    specific_trls = TRLDefinition.objects.filter(
-        medtech_type=application.medtech_type
-    ).order_by('level')
-    generic_trls = TRLDefinition.objects.filter(
-        medtech_type=""
-    ).order_by('level')
-
-    trls_by_level = {}
-    for trl in generic_trls:
-        trls_by_level[trl.level] = trl
-    for trl in specific_trls:
-        trls_by_level[trl.level] = trl
-
-    all_trls = [trls_by_level[lvl] for lvl in sorted(trls_by_level) if lvl > 0]
-
-    tracker = []
-    for trl in all_trls:
-        if trl.level < initial_level:
-            status = "disabled"
-        elif trl.level < current_level:
-            status = "completed"
-        elif trl.level == current_level:
-            status = "current"
-        else:
-            status = "pending"
-
-        trl_tag = f"TRL-{trl.level}"
-        matched_partners = []
-
-        if status != "disabled":
-            for partner in partners:
-                levels_list = [lvl.strip() for lvl in partner.applicable_trl_levels.split(",") if lvl.strip()]
-                if trl_tag not in levels_list:
-                    continue
-
-                assignment = KnowledgePartnerAssignment.objects.filter(
-                    trl_stage__application=application, partner=partner
-                ).order_by('-date_allotted').first()
-
-                milestones_data = []
-                if assignment:
-                    milestones = Milestone.objects.filter(assignment=assignment).order_by('template__sequence')
-                    for m in milestones:
-                        milestones_data.append({
-                            "label": m.label or (m.template.description if m.template else ""),
-                            "is_achieved": m.status == Milestone.MilestoneStatus.CLOSED,
-                            "date_achieved": m.date_achieved,
-                        })
-
-                matched_partners.append({
-                    "short_code": partner.short_code,
-                    "name": partner.name,
-                    "assignment_status": assignment.get_status_display() if assignment else "Not Assigned",
-                    "milestones": milestones_data,
-                })
-
-        tracker.append({
-            "id": trl.id,
-            "level": trl.level,
-            "name": trl.name,
-            "status": status,
-            "partners": matched_partners,
+        category_data.append({
+            "value": category_value,
+            "name": category_label,
+            "received": received,
+            "tac_discussed": tac_discussed,
+            "closed": closed,
+            "completed": completed,
+            "in_process": in_process,
+            "closed_percent": round(closed_percent, 2),
+            "completed_percent": round(completed_percent, 2),
+            "progress_percent": round(progress_percent, 2),
         })
 
-    return tracker
+    return category_data
+
 
 
 

@@ -1,0 +1,900 @@
+/* =========================================================
+   MedTech Mitra Dashboard - ICMR theme
+   Colours are taken from the ICMR website (icmr.gov.in)
+   ========================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+
+/* ---------- 1. Colours and fonts (change them here only) ---------- */
+:root {
+  /* ICMR colours */
+  --icmr-navy:        #014271;   /* ICMR main blue (active tabs, headings) */
+  --icmr-navy-dark:   #012f52;   /* hover */
+  --icmr-navy-deep:   #011f36;   /* footer bottom bar */
+  --icmr-orange:      #A92700;   /* ICMR orange buttons */
+  --icmr-orange-dark: #8E2100;   /* orange hover */
+  --icmr-orange-soft: #FF7247;   /* ICMR footer label colour */
+  --icmr-green:       #095C02;   /* ICMR highlight green */
+  --icmr-link:        #0A5AD3;   /* ICMR link colour */
+  --icmr-sky:         #74B5FF;   /* light blue on dark background */
+  --icmr-focus:       #005fcc;   /* ICMR keyboard focus outline */
+
+  /* Page colours */
+  --page-bg:     #f4f7fa;
+  --tint:        #e8f0f7;
+  --line:        #d6e0ea;
+  --text-muted:  #545F67;
+
+  /* Fonts */
+  --font-body: "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-body);
+
+  /* Tell Bootstrap to use ICMR colours */
+  --bs-primary: #014271;
+  --bs-primary-rgb: 1, 66, 113;
+  --bs-link-color: #0A5AD3;
+  --bs-link-color-rgb: 10, 90, 211;
+  --bs-link-hover-color: #A92700;
+  --bs-link-hover-color-rgb: 169, 39, 0;
+  --bs-body-font-family: var(--font-body);
+  --bs-body-bg: #f4f7fa;
+}
+
+body {
+  background: var(--page-bg);
+  font-family: var(--font-body);
+  color: #1f2a33;
+}
+
+
+/* ---------- 2. Keyboard focus (same as ICMR site) ---------- */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--icmr-focus);
+  outline-offset: 2px;
+}
+
+
+/* ---------- 3. Tricolour strip on top ---------- */
+.tricolor-strip {
+  height: 4px;
+  background: linear-gradient(to right,
+    #FF9933 0 33.33%,
+    #ffffff 33.33% 66.66%,
+    #138808 66.66% 100%);
+}
+
+
+/* ---------- 4. Header ---------- */
+.site-header {
+  background: var(--icmr-navy);
+  border-bottom: 3px solid var(--icmr-orange);
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #fff;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--icmr-orange);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.brand-text strong {
+  display: block;
+  font-size: 1.05rem;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.brand-text small {
+  color: #cfe0ee;
+  font-size: 0.78rem;
+}
+
+.site-header .btn-outline-light:focus-visible {
+  outline-color: var(--icmr-sky);
+}
+
+
+/* ---------- 5. Page area ---------- */
+.page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 2.5rem;
+}
+
+/* Page heading with the ICMR orange underline */
+.section-heading {
+  color: var(--icmr-navy);
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.section-heading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 60px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--icmr-orange);
+}
+
+
+/* ---------- 6. Cards ---------- */
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.card-header-icmr {
+  background: #fff;
+  color: var(--icmr-navy);
+  font-weight: 600;
+  border-bottom: 2px solid var(--icmr-orange);
+}
+
+
+/* ---------- 7. KPI cards (the 4 number boxes) ---------- */
+.kpi-card {
+  border-top: 4px solid var(--kpi-color);
+}
+
+.kpi-card .kpi-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.kpi-card .kpi-value {
+  color: var(--kpi-color);
+}
+
+.kpi-total    { --kpi-color: var(--icmr-navy); }
+.kpi-progress { --kpi-color: #B45309; }   /* dark amber, easy to read */
+.kpi-closed   { --kpi-color: var(--text-muted); }
+.kpi-done     { --kpi-color: var(--icmr-green); }
+
+
+/* ---------- 8. Buttons ---------- */
+.btn-primary {
+  --bs-btn-bg: var(--icmr-navy);
+  --bs-btn-border-color: var(--icmr-navy);
+  --bs-btn-hover-bg: var(--icmr-navy-dark);
+  --bs-btn-hover-border-color: var(--icmr-navy-dark);
+  --bs-btn-active-bg: var(--icmr-navy-deep);
+  --bs-btn-active-border-color: var(--icmr-navy-deep);
+  --bs-btn-disabled-bg: var(--icmr-navy);
+  --bs-btn-disabled-border-color: var(--icmr-navy);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--icmr-navy);
+  --bs-btn-border-color: var(--icmr-navy);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--icmr-navy);
+  --bs-btn-hover-border-color: var(--icmr-navy);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--icmr-navy-dark);
+  --bs-btn-active-border-color: var(--icmr-navy-dark);
+}
+
+.btn-success {
+  --bs-btn-bg: var(--icmr-green);
+  --bs-btn-border-color: var(--icmr-green);
+  --bs-btn-hover-bg: #074a02;
+  --bs-btn-hover-border-color: #074a02;
+  --bs-btn-active-bg: #053801;
+  --bs-btn-active-border-color: #053801;
+  --bs-btn-disabled-bg: var(--icmr-green);
+  --bs-btn-disabled-border-color: var(--icmr-green);
+}
+
+.btn-outline-success {
+  --bs-btn-color: var(--icmr-green);
+  --bs-btn-border-color: var(--icmr-green);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--icmr-green);
+  --bs-btn-hover-border-color: var(--icmr-green);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #074a02;
+  --bs-btn-active-border-color: #074a02;
+}
+
+/* ICMR orange "pill" button (like "Read More" on icmr.gov.in) */
+.btn-icmr {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--icmr-orange);
+  --bs-btn-border-color: var(--icmr-orange);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--icmr-orange-dark);
+  --bs-btn-hover-border-color: var(--icmr-orange-dark);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #6f1a00;
+  --bs-btn-active-border-color: #6f1a00;
+  border-radius: 50px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+
+/* ---------- 9. Forms ---------- */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--icmr-focus);
+  box-shadow: 0 0 0 0.2rem rgba(0, 95, 204, 0.2);
+}
+
+.form-check-input:checked {
+  background-color: var(--icmr-navy);
+  border-color: var(--icmr-navy);
+}
+
+.form-check-input:focus {
+  border-color: var(--icmr-focus);
+  box-shadow: 0 0 0 0.2rem rgba(0, 95, 204, 0.2);
+}
+
+
+/* ---------- 10. Table ---------- */
+.table-light {
+  --bs-table-bg: var(--tint);
+  --bs-table-color: var(--icmr-navy);
+  --bs-table-border-color: var(--line);
+}
+
+.table thead th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-hover > tbody > tr:hover > * {
+  --bs-table-bg-state: #f1f6fb;   /* Bootstrap 5.3 */
+  --bs-table-accent-bg: #f1f6fb;  /* Bootstrap 5.0 - 5.2 */
+}
+
+.progress-bar.bg-success {
+  background-color: var(--icmr-green) !important;
+}
+
+
+/* ---------- 11. Pagination ---------- */
+.pagination {
+  --bs-pagination-color: var(--icmr-navy);
+  --bs-pagination-hover-color: var(--icmr-orange);
+  --bs-pagination-focus-color: var(--icmr-navy);
+  --bs-pagination-focus-box-shadow: 0 0 0 0.2rem rgba(0, 95, 204, 0.3);
+  --bs-pagination-active-bg: var(--icmr-navy);
+  --bs-pagination-active-border-color: var(--icmr-navy);
+}
+
+
+/* ---------- 12. Popups (modals) ---------- */
+.modal-header {
+  background: var(--tint);
+  border-bottom: 2px solid var(--icmr-orange);
+}
+
+.modal-title {
+  color: var(--icmr-navy);
+  font-weight: 600;
+}
+
+
+/* ---------- 13. Footer (same layout idea as ICMR footer) ---------- */
+.site-footer {
+  background: var(--icmr-navy);
+  color: #d7e4ef;
+  font-size: 0.9rem;
+}
+
+.footer-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 1.75rem;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.footer-brand strong {
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.footer-about {
+  max-width: 38ch;
+  line-height: 1.6;
+}
+
+.footer-head {
+  color: var(--icmr-orange-soft);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.footer-contact p {
+  margin-bottom: 0.4rem;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 0.45rem;
+}
+
+.site-footer a {
+  color: #d7e4ef;
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--icmr-orange-soft);
+  text-decoration: underline;
+}
+
+/* Blue focus ring is hard to see on navy, so use light blue here */
+.site-footer a:focus-visible {
+  outline-color: var(--icmr-sky);
+}
+
+/* Social icons */
+.footer-social {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.footer-social a {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 1rem;
+}
+
+.footer-social a:hover {
+  background: var(--icmr-orange);
+  border-color: var(--icmr-orange);
+  color: #fff;
+  text-decoration: none;
+}
+
+/* Bottom dark strip */
+.footer-bottom {
+  background: var(--icmr-navy-deep);
+  padding: 0.85rem 0;
+  font-size: 0.8rem;
+}
+
+.footer-bottom-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+}
+
+.footer-bottom .label {
+  color: var(--icmr-orange-soft);
+  margin-right: 0.25rem;
+}
+
+
+/* ---------- 14. Small screens ---------- */
+@media (max-width: 575.98px) {
+  .header-inner,
+  .page,
+  .footer-main {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .footer-bottom-inner {
+    flex-direction: column;
+  }
+}
+
+/* ---------- 15. Respect "reduce motion" setting ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+
+/* ---------- 16. ICMR logo (header + footer) ---------- */
+/* The ICMR logo is made for a white background,
+   so we put it inside a small white box. */
+.brand-logo {
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brand-logo img {
+  height: 100%;
+  width: auto;
+  max-width: 220px;
+  display: block;
+}
+
+/* Thin line between the logo and the dashboard name */
+.brand-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Footer logo is a little bigger */
+.footer-logo {
+  height: 60px;
+}
+
+@media (max-width: 575.98px) {
+  .brand-logo {
+    height: 42px;
+    padding: 3px 8px;
+  }
+
+  .brand-logo img {
+    max-width: 150px;
+  }
+
+  .brand-text strong {
+    font-size: 0.9rem;
+  }
+}
+
+
+/* ---------- 17. Sign in page ---------- */
+.login-card {
+  max-width: 420px;
+  width: 100%;
+  border-top: 4px solid var(--icmr-orange);
+}
+
+/* Card is white, so the logo needs no white box here */
+.login-logo {
+  height: 64px;
+  width: auto;
+  max-width: 100%;
+}
+
+.login-title {
+  color: var(--icmr-navy);
+}
+
+.login-label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Icon box on the left of each input */
+.login-card .input-group-text {
+  background: var(--tint);
+  color: var(--icmr-navy);
+  border-color: var(--line);
+}
+
+/* Blue focus ring around the whole input group */
+.login-card .input-group:focus-within .input-group-text {
+  border-color: var(--icmr-focus);
+}
+
+.action-icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.trl-dot {
+    width: 12px;
+    height: 6px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+
+
+/* ---------- Font (must be the first line of the file) ---------- */
+
+/* =====================================
+   APPLICATION TABLE TYPOGRAPHY
+===================================== */
+
+/* =====================================
+   COLORS (change these in one place)
+===================================== */
+.app-card {
+    --tbl-border: #eaeef3;
+    --tbl-head-bg: #f8fafc;
+    --tbl-hover: #83aee6;
+    --tbl-hover-border: #a9c9f5;
+    --tbl-accent: #1769d2;
+    --tbl-text: #344054;
+    --tbl-muted: #98a2b3;
+
+    border: 1px solid var(--tbl-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+/* =====================================
+   HEADER COUNT BADGE
+===================================== */
+.count-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* =====================================
+   WRAPPER
+===================================== */
+.application-table-wrapper {
+    overflow: visible;
+}
+
+/* =====================================
+   TABLE BASE
+===================================== */
+.application-table {
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header */
+.application-table thead th {
+    background: var(--tbl-head-bg);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #475467;
+    padding: 12px 6px;
+    border-bottom: 1px solid var(--tbl-border);
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Body cells */
+.application-table tbody td {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--tbl-text);
+    padding: 12px 8px;
+    line-height: 1.5;
+    vertical-align: top;        /* top = support rows line up */
+    border-bottom: 1px solid var(--tbl-border);
+    background: #fff;
+    transition: background-color 0.15s ease;
+}
+
+.application-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* =====================================
+   ROW HOVER
+===================================== */
+.app-row {
+    cursor: pointer;
+}
+
+.app-row:focus-visible {
+    outline: none;
+}
+
+/* Strong blue background */
+.app-row:hover td,
+.app-row:focus-visible td {
+    background: var(--tbl-hover);
+    border-bottom-color: var(--tbl-hover-border);
+}
+
+/* Thick blue line on the left */
+.app-row:hover td:first-child,
+.app-row:focus-visible td:first-child {
+    box-shadow: inset 5px 0 0 var(--tbl-accent);
+}
+
+/* Darker text on hover so it stays readable */
+.app-row:hover td,
+.app-row:hover .ref-no,
+.app-row:hover .fw-semibold {
+    color: #0b3d91;
+}
+
+.app-row:hover .tech-name {
+    color: #0b4fb3;
+}
+
+.app-row:hover .tech-applicant,
+.app-row:hover .text-muted,
+.app-row:hover .empty-dash {
+    color: #3d5a80 !important;
+}
+
+/* White ring so pills stand out on blue */
+.app-row:hover .class-pill,
+.app-row:hover .trl-pill,
+.app-row:hover .tac-pill,
+.app-row:hover .status-badge {
+    box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* =====================================
+   REFERENCE NO.
+===================================== */
+.ref-no {
+    font-size: 12px;
+    font-weight: 700;
+    color: #344767;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;    /* long ref no. shows "..." */
+}
+
+.application-table .text-muted.small {
+    font-size: 11px;
+    color: var(--tbl-muted) !important;
+}
+
+/* =====================================
+   TECHNOLOGY
+===================================== */
+.tech-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;      /* max 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tech-applicant {
+    font-size: 11px;
+    color: #667085;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================
+   PILLS: Class / TRL / TAC
+===================================== */
+.class-pill,
+.trl-pill,
+.tac-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.class-pill { background: #f4f3ff; color: #5925dc; border-color: #d9d6fe; }
+.trl-pill   { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+.tac-pill   { background: #f2f4f7; color: #344054; border-color: #e4e7ec; }
+
+.tac-row + .tac-row {
+    margin-top: 4px;
+}
+
+/* =====================================
+   SUPPORT ITEMS (same height in 3 columns)
+===================================== */
+.support-item {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-bottom: 1px dashed var(--tbl-border);
+}
+
+.support-item:last-child {
+    border-bottom: none;
+}
+
+.app-row:hover .support-item {
+    border-bottom-color: var(--tbl-hover-border);
+}
+
+.support-name {
+    font-weight: 600;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* =====================================
+   STATUS BADGES (with dot)
+===================================== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: normal;
+}
+
+.status-badge::before {
+    content: "";
+    flex-shrink: 0;             /* dot stays round when text wraps */
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-pending  { background: #fffaeb; color: #b54708; }
+.status-progress { background: #eff8ff; color: #175cd3; }
+.status-done     { background: #ecfdf3; color: #067647; }
+
+/* =====================================
+   ATTACHMENTS
+===================================== */
+.support-files {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.attachment-link {
+    max-width: 100%;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tbl-accent);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attachment-link:hover {
+    color: #084298;
+    text-decoration: underline;
+}
+
+.app-row:hover .attachment-link {
+    color: #0b3d91;
+}
+
+/* =====================================
+   ASSIGNED KP
+===================================== */
+.application-table .fw-semibold {
+    font-size: 12px;
+    font-weight: 700 !important;
+    color: var(--tbl-text);
+}
+
+/* =====================================
+   EMPTY VALUES
+===================================== */
+.empty-dash {
+    font-size: 12px;
+    color: var(--tbl-muted);
+}
+
+
+/****************** Support Option ***************************/ 
+.support-name-reconme {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Different SupportOption IDs */
+.support-color-1 {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+}
+
+.support-color-2 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+}
+
+.support-color-3 {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+.support-color-4 {
+    background-color: #f3e8ff !important;
+    color: #6b21a8 !important;
+}
+
+.support-color-5 {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+.support-color-6 {
+    background-color: #cffafe !important;
+    color: #155e75 !important;
+}
+
+
+

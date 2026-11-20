@@ -1,15 +1,587 @@
+
 {% extends "base-dashboard.html" %}
 
-{% block title %}Dashboard | MedTech Mitra{% endblock %}
+{% block title %}Application Insights | MedTech Mitra{% endblock %}
 
 {% block content %}
 
-<div class="container-fluid px-4">
+<style>
+/* Chart sizing and custom stacked-bar colors only; layout uses Bootstrap 5. */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 225px;
+}
 
-    <h1 class="mt-4">Dashboard</h1>
+@media (min-width: 1400px) {
+    .chart-container { height: 245px; }
+}
 
-    <!-- Dashboard content -->
+@media (max-width: 576px) {
+    .chart-container { height: 220px; }
+}
+
+.stacked-status-bar {
+    display: flex;
+    width: 100%;
+    height: 15px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #edf1f5;
+}
+
+.stack-segment {
+    height: 100%;
+}
+
+.closed-segment { background: #68788b; }
+.completed-segment { background: #27855f; }
+.progress-segment { background: #dc9932; }
+</style>
+
+<div class="container-fluid py-3 px-3">
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-0">Application Insights</h1>
+            <div class="small text-secondary mt-1">
+                Application performance and deliverable analytics
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTERS -->
+   
+<div class="card border rounded-3 p-3 mb-3">
+    <form method="GET" id="dashboardFilterForm">
+
+        <div class="row g-2 align-items-center">
+
+            <!-- CATEGORY -->
+            <div class="col-6 col-md-3">
+                <select name="medtech_type" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for value, label in medtech_type_choices %}
+                    <option value="{{ value }}"
+                        {% if request.GET.medtech_type == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- STATUS -->
+            <div class="col-6 col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}"
+                        {% if request.GET.status == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="col-12 col-md-7 d-flex gap-2">
+                <button type="button"
+                        class="btn btn-outline-secondary flex-grow-1"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#advancedFilters">
+                    <i class="bi bi-sliders me-1"></i>
+                    More Filters
+                    <i class="bi bi-chevron-down ms-1"
+                       id="filterChevron"></i>
+                </button>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1"></i> Apply
+                </button>
+
+                <a href="{% url 'dashboard:overview' %}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </a>
+            </div>
+
+        </div>
+
+        <!-- ADVANCED FILTERS -->
+        <div class="collapse" id="advancedFilters">
+            <div class="border-top pt-3 mt-3">
+                <div class="row g-2">
+
+                    <div class="col-6 col-md-3">
+                        <select name="subtype" class="form-select">
+                            <option value="">All Subcategories</option>
+                            {% for value, label in subtype_choices %}
+                            <option value="{{ value }}"
+                                {% if request.GET.subtype == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <select name="risk_classification" class="form-select">
+                            <option value="">All Risk Classes</option>
+                            {% for value, label in risk_choices %}
+                            <option value="{{ value }}"
+                                {% if request.GET.risk_classification == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <select name="partner" class="form-select">
+                            <option value="">All Partners</option>
+                            {% for partner in partners %}
+                            <option value="{{ partner.short_code }}"
+                                {% if request.GET.partner == partner.short_code %}selected{% endif %}>
+                                {{ partner.short_code }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <select name="support_option" class="form-select">
+                            <option value="">All Support Options</option>
+                            {% for option in support_options %}
+                            <option value="{{ option.id }}"
+                                {% if request.GET.support_option == option.id|stringformat:"s" %}selected{% endif %}>
+                                {{ option.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <select name="deliverable" class="form-select">
+                            <option value="">All Deliverables</option>
+                            {% for item in quantifiable_deliverables %}
+                            <option value="{{ item.id }}"
+                                {% if request.GET.deliverable == item.id|stringformat:"s" %}selected{% endif %}>
+                                {{ item.deliverable }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <input type="date" name="date_from"
+                               class="form-control"
+                               value="{{ request.GET.date_from }}"
+                               title="Date from">
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <input type="date" name="date_to"
+                               class="form-control"
+                               value="{{ request.GET.date_to }}"
+                               title="Date to">
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <select name="trl_from" class="form-select">
+                            <option value="">All Initial TRLs</option>
+                            {% for level in trl_level_choices %}
+                            <option value="{{ level }}"
+                                {% if request.GET.trl_from == level|stringformat:"s" %}selected{% endif %}>
+                                TRL {{ level }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                        <select name="trl_to" class="form-select">
+                            <option value="">All Current TRLs</option>
+                            {% for level in trl_level_choices %}
+                            <option value="{{ level }}"
+                                {% if request.GET.trl_to == level|stringformat:"s" %}selected{% endif %}>
+                                TRL {{ level }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+
+    <!-- KPI SECTION -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3 mb-4">
+
+        <div class="col"><div class="card border-start border-4 border-primary shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="small fw-semibold text-secondary mb-1">Total Applications</div>
+                <div class="fs-3 fw-bold text-dark">{{ total_applications }}</div>
+            </div>
+            <i class="bi bi-files fs-2 text-primary"></i>
+            </div></div></div>
+
+        <div class="col"><div class="card border-start border-4 border-warning shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="small fw-semibold text-secondary mb-1">In Progress</div>
+                <div class="fs-3 fw-bold text-dark">{{ total_in_progress }}</div>
+            </div>
+            <i class="bi bi-hourglass-split fs-2 text-warning"></i>
+            </div></div></div>
+
+        <div class="col"><div class="card border-start border-4 border-secondary shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="small fw-semibold text-secondary mb-1">Closed</div>
+                <div class="fs-3 fw-bold text-dark">{{ total_closed }}</div>
+            </div>
+            <i class="bi bi-x-circle fs-2 text-secondary"></i>
+            </div></div></div>
+
+        <div class="col"><div class="card border-start border-4 border-success shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="small fw-semibold text-secondary mb-1">Completed</div>
+                <div class="fs-3 fw-bold text-dark">{{ total_completed }}</div>
+            </div>
+            <i class="bi bi-check-circle fs-2 text-success"></i>
+            </div></div></div>
+
+    </div>
+    
+<!-- CATEGORY-WISE PORTFOLIO SNAPSHOT -->
+
+<h6 class="fw-bold text-dark mt-4 mb-3">
+    Application Category-wise Analysis
+</h6>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
+
+    {% for category in category_portfolio %}
+
+    <div class="col"><div class="card h-100 p-3">
+
+        <!-- CATEGORY NAME -->
+        <div class="fw-bold text-dark mb-3">
+            {{ category.name }}
+        </div>
+
+        <!-- RECEIVED AND TAC -->
+        <div class="row g-2 align-items-center mb-3">
+
+            <div class="col">
+                <div class="small fw-bold text-secondary mb-1">RECEIVED</div>
+                <div class="fs-3 fw-bold text-dark">
+                    {{ category.received }}
+                </div>
+            </div>
+</div>
+
+        <hr class="my-2">
+
+        <!-- CURRENT DISPOSITION -->
+        <div class="small fw-bold text-secondary mb-2">
+            CURRENT DISPOSITION
+        </div>
+
+        <div class="row g-2 align-items-center">
+
+            <div class="col-7 d-flex flex-column gap-1">
+
+                 <div class="d-flex align-items-center gap-2 small text-nowrap">
+                    <span class="rounded-circle flex-shrink-0" style="width:8px;height:8px;background:#dc9932;"></span>
+                    <span>In Progress</span>
+                    <strong>{{ category.in_process }}</strong>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 small text-nowrap">
+                    <span class="rounded-circle flex-shrink-0 bg-secondary" style="width:8px;height:8px;"></span>
+                    <span>Closed</span>
+                    <strong>{{ category.closed }}</strong>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 small text-nowrap">
+                    <span class="rounded-circle flex-shrink-0 bg-success" style="width:8px;height:8px;"></span>
+                    <span>Support completed</span>
+                    <strong>{{ category.completed  }}</strong>
+                </div>
+
+            </div>
+
+            <!-- STACKED STATUS BAR -->
+            <div class="col-5">
+
+                <div class="stacked-status-bar">
+
+                    <div class="stack-segment closed-segment" data-width="{{ category.closed_percent }}">
+                    </div>
+
+                    <div class="stack-segment completed-segment"
+                        data-width="{{ category.completed_percent }}">
+                    </div>
+
+                    <div class="stack-segment progress-segment"
+                        data-width="{{ category.progress_percent }}">
+                    </div>
+
+                </div>
+
+                <div class="small text-secondary mt-1">
+                    Status distribution
+                </div>
+
+            </div>
+
+        </div>
+    </div></div>
+
+    {% empty %}
+
+    <div class="col-12 bg-white border rounded-3 p-4 text-secondary small">
+        No category-wise portfolio data available.
+    </div>
+
+    {% endfor %}
 
 </div>
+
+<!-- SUPPORT & DELIVERABLE ANALYTICS -->
+
+<h6 class="fw-bold text-dark mt-4 mb-3">Support & Deliverable Analytics</h6>
+
+<div class="row g-3 mb-3">
+
+    <!-- LEFT: SUPPORT -->
+    <div class="col-12 col-lg-6">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-white fw-bold">
+                Types of Support Provided
+            </div>
+
+            <div class="card-body">
+
+                <div class="chart-container">
+                    <canvas id="supportChart"></canvas>
+                </div>
+
+                <div class="small text-secondary mt-2">
+                    Number of distinct applications requesting each support option.
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- RIGHT: DELIVERABLE-WISE PROGRESS -->
+
+<div class="col-12 col-lg-6">
+    <div class="card h-100">
+
+        <div class="card-header bg-white fw-bold">
+            Quantifiable Deliverable Progress
+        </div>
+
+        <div class="card-body">
+
+            {% for item in deliverable_progress %}
+            <div class="mb-3">
+
+                <!-- DELIVERABLE NAME -->
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-semibold text-dark" style="font-size: 11px;">
+                        {{ item.name }}
+                    </span>
+
+                    <span class="text-muted" style="font-size: 10px;">
+                        {{ item.total }} Applications
+                    </span>
+                </div>
+
+                <!-- STACKED PROGRESS BAR -->
+                <div class="progress" style="height: 13px;">
+
+                    <div class="progress-bar bg-success"
+                         role="progressbar"
+                         data-width="{{ item.completed_percent }}"
+                         aria-valuenow="{{ item.completed_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                    </div>
+
+                    <div class="progress-bar bg-warning"
+                         role="progressbar"
+                         data-width="{{ item.in_progress_percent }}"
+                         aria-valuenow="{{ item.in_progress_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                    </div>
+
+                    <div class="progress-bar bg-secondary"
+                         role="progressbar"
+                         data-width="{{ item.pending_percent }}"
+                         aria-valuenow="{{ item.pending_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                    </div>
+
+                </div>
+
+                <!-- STATUS COUNTS -->
+                <div class="d-flex justify-content-between mt-1">
+
+                    <span class="text-success" style="font-size: 10px;">
+                        Completed: {{ item.completed }}
+                    </span>
+
+                    <span class="text-warning" style="font-size: 10px;">
+                        In Progress: {{ item.in_progress }}
+                    </span>
+
+                    <span class="text-muted" style="font-size: 10px;">
+                        Pending: {{ item.pending }}
+                    </span>
+
+                </div>
+
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4" style="font-size: 12px;">
+                No deliverable data available.
+            </div>
+            {% endfor %}
+
+            <!-- LEGEND -->
+            <div class="d-flex flex-wrap gap-3 pt-2 border-top">
+
+                <span class="d-flex align-items-center gap-1" style="font-size: 10px;">
+                    <span class="rounded-circle bg-success"
+                          style="width: 8px; height: 8px;"></span>
+                    Completed
+                </span>
+
+                <span class="d-flex align-items-center gap-1" style="font-size: 10px;">
+                    <span class="rounded-circle bg-warning"
+                          style="width: 8px; height: 8px;"></span>
+                    In Progress
+                </span>
+
+                <span class="d-flex align-items-center gap-1" style="font-size: 10px;">
+                    <span class="rounded-circle"
+                          style="width: 8px; height: 8px; background: #9aa7b5;"></span>
+                    Pending
+                </span>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+</div>
+
+<!-- DJANGO CHART DATA -->
+{{ support_chart|json_script:"support-chart-data" }}
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Apply Django-rendered progress widths without putting template syntax in CSS.
+    document.querySelectorAll("[data-width]").forEach(function (element) {
+        const width = Number.parseFloat(element.dataset.width);
+        element.style.width = `${Number.isFinite(width) ? Math.min(100, Math.max(0, width)) : 0}%`;
+    });
+
+    const chartDataElement = document.getElementById("support-chart-data");
+    const supportCanvas = document.getElementById("supportChart");
+
+    if (chartDataElement && supportCanvas && typeof Chart !== "undefined") {
+        let chartData = { labels: [], values: [] };
+
+        try {
+            chartData = JSON.parse(chartDataElement.textContent);
+        } catch (error) {
+            console.error("Invalid support chart data:", error);
+        }
+
+        const colors = [
+            "#3656A5", "#27855F", "#DC9932", "#C75B5B",
+            "#8065A8", "#12818A", "#D16B8B", "#7B8999", "#65A36C"
+        ];
+
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 11;
+        Chart.defaults.color = "#647184";
+        Chart.defaults.plugins.tooltip.backgroundColor = "#192d46";
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.cornerRadius = 6;
+
+        new Chart(supportCanvas, {
+            type: "bar",
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: "Applications",
+                    data: chartData.values,
+                    backgroundColor: chartData.values.map(
+                        (_, index) => colors[index % colors.length]
+                    ),
+                    borderRadius: 4,
+                    borderSkipped: false,
+                    maxBarThickness: 30
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: "#edf1f5" },
+                        ticks: { precision: 0 }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { autoSkip: false }
+                    }
+                }
+            }
+        });
+    }
+
+    const advancedFilters = document.getElementById("advancedFilters");
+    const filterChevron = document.getElementById("filterChevron");
+
+    if (advancedFilters && filterChevron) {
+        advancedFilters.addEventListener("show.bs.collapse", function () {
+            filterChevron.classList.replace("bi-chevron-down", "bi-chevron-up");
+        });
+
+        advancedFilters.addEventListener("hide.bs.collapse", function () {
+            filterChevron.classList.replace("bi-chevron-up", "bi-chevron-down");
+        });
+    }
+});
+</script>
 
 {% endblock %}

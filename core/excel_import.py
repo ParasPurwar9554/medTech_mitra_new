@@ -222,6 +222,18 @@ def _map_affiliation_type(value):
         return "individual"
     return "institute"  # startup / company / institute
 
+def _map_gender(value):
+    """Map Excel gender values to Applicant.Gender choices."""
+    value = _simple(value)
+
+    if value in ["male", "male"]:
+        return Applicant.Gender.male
+
+    if value in ["female", "female"]:
+        return Applicant.Gender.female
+
+    return Applicant.Gender.UNKNOWN
+
 
 def _map_risk_class(value):
     """Accepts 'Class A', 'Class-B', or just 'C'."""
@@ -362,6 +374,8 @@ def _get_or_update_applicant(row, user=None):
         "email": _first_email(row.get("email")),
         "contact_number": _phone(row.get("contact_number"))[:50],
         "address": _clean_str(row.get("address")),
+        "city": _clean_str(row.get("city"))[:255],
+        "gender": _map_gender(row.get("gender")),
     }
 
     applicant = Applicant.objects.filter(name__iexact=name).first()
@@ -370,9 +384,13 @@ def _get_or_update_applicant(row, user=None):
         return applicant
 
     # Update only with values that are filled in
-    for field in data:
-        value = data[field]
-        if value != "" and value is not None:
+    for field, value in data.items():
+        if field == "gender":
+            # Update gender only if Excel has a value
+            if _clean_str(row.get("gender")) != "":
+                setattr(applicant, field, value)
+
+        elif value != "" and value is not None:
             setattr(applicant, field, value)
     applicant.save()
     return applicant
@@ -652,20 +670,18 @@ def import_master_excel(file_obj, user=None):
                 defaults = _application_values(row, applicant, status, closure_date, warnings)
 
                 obj, was_created = Application.objects.update_or_create(
-                    reference_no=reference_no,
-                    defaults=defaults,
+                reference_no=reference_no,
+                defaults={
+                    **defaults,
+                     **({"created_by": user} if user else {}),
+                    },
                 )
 
                 if was_created:
-                    created_count = created_count + 1
-                    if user:
-                        obj.created_by = user
-                        obj.save(update_fields=["created_by"])
+                    created_count += 1
                 else:
-                    updated_count = updated_count + 1
+                    updated_count += 1
 
-                # TAC details are imported. Support recommendations, TRL data,
-                # and Knowledge Partner assignments are maintained in Django Admin.
                 _save_tac_meeting(row, obj, user)
 
                 for w in warnings:

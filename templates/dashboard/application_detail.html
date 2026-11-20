@@ -20,10 +20,10 @@
     </p>
   </div>
 
-  <a href="{% url 'dashboard:overview' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
-     class="btn btn-outline-secondary">
-    &larr; Back to dashboard
-  </a>
+  <a href="{% url 'dashboard:applications' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+   class="btn btn-outline-secondary">
+    &larr; Back to Applications
+</a>
 </div>
 
 <div class="row g-3">
@@ -31,60 +31,7 @@
   <div class="col-lg-8">
 
     <!-- ---------- TRL Progress ---------- -->
-    <div class="card mb-3">
-      <div class="card-header bg-white fw-semibold">TRL Progress</div>
-
-      <div class="card-body">
-        <div class="d-flex align-items-start overflow-x-auto pt-2 pb-3">
-          {% for trl in trl_tracker %}
-
-            <div class="d-flex flex-column align-items-center text-center" style="min-width:86px;">
-
-              <!-- Circle -->
-              <div class="rounded-circle d-flex align-items-center justify-content-center fw-semibold
-                          {% if trl.status == 'completed' %}text-bg-success
-                          {% elif trl.status == 'current' %}text-bg-warning border border-3 border-warning-subtle
-                          {% elif trl.status == 'disabled' %}bg-secondary-subtle text-secondary pe-none
-                          {% else %}bg-light text-secondary border{% endif %}
-                          {% if trl.status != 'disabled' %}trl-clickable{% endif %}"
-                   style="width:36px; height:36px; font-size:.875rem;"
-                   data-trl-id="{{ trl.id }}"
-                   data-app-id="{{ application.id }}"
-                   {% if trl.status != 'disabled' %}
-                     tabindex="0"
-                     role="button"
-                   {% else %}
-                     aria-disabled="true"
-                   {% endif %}
-                   aria-label="TRL {{ forloop.counter }}: {{ trl.name }}">
-                {{ forloop.counter }}
-              </div>
-
-              <!-- Label -->
-              <div class="mt-2 {% if trl.status == 'completed' or trl.status == 'current' %}fw-medium{% elif trl.status == 'disabled' %}text-muted opacity-50{% else %}text-muted{% endif %}"
-                   style="max-width:86px; font-size:.75rem; line-height:1.3;">
-                {{ trl.name|break_before_paren }}
-              </div>
-
-            </div>
-
-            <!-- Line between steps -->
-            {% if not forloop.last %}
-              <div class="flex-fill border-top border-2 {% if trl.status == 'completed' %}border-success{% endif %}"
-                   style="margin:17px -6px 0;"></div>
-            {% endif %}
-
-          {% endfor %}
-        </div>
-
-        <!-- Single dynamic detail panel, filled by AJAX -->
-        <div id="trl-detail-panel" class="card border-0 border-start border-3 border-warning shadow-sm mt-3 d-none">
-          <div class="card-body" id="trl-detail-content">Loading...</div>
-        </div>
-
-      </div>
-    </div>
-
+   
     <!-- ---------- Application Details ---------- -->
     <div class="card mb-3">
       <div class="card-header bg-white fw-semibold">
@@ -176,7 +123,7 @@
         </h6>
 
         <dl class="row mb-0">
-          <dt class="col-sm-4">Status</dt>
+          <dt class="col-sm-4">Application Status</dt>
           <dd class="col-sm-8">
             <span class="badge text-bg-secondary">{{ application.get_status_display }}</span>
           </dd>
@@ -209,6 +156,7 @@
         {% endfor %}
       </ul>
     </div>
+
 
   </div>
 
@@ -311,97 +259,107 @@
     <div class="card-body">{{ application.current_trl|default:"—" }}</div>
   </div>
 
-  <!-- ---------- Knowledge partner support ---------- -->
+  <!-- ---------- Support Requested ---------- -->
   <div class="card mb-3">
-    <div class="card-header bg-white fw-semibold">Knowledge partner support</div>
+    <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+      <span>Support Requested</span>
+      <span class="badge text-bg-primary">{{ application.application_supports.all|length }}</span>
+    </div>
 
-    <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-      {% for stage in application.trl_stages.all %}
-        {% for a in stage.partner_assignments.all %}
+    <div class="card-body">
+      {% for support in application.application_supports.all %}
+        <div class="border-bottom pb-3 mb-3">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <strong class="small">{{ support.support_option.name|default:"Support option" }}</strong>
 
-          <div class="border-bottom pb-3 mb-3">
-
-            <strong>{{ a.partner.name }}</strong>
-            <span class="small text-muted">({{ stage.trl.name }})</span>
-
-            {% if a.partner.short_code != "NA" %}
-              &mdash;
-              {% if a.get_status_display == "Support Completed" or a.get_status_display == "Partner Connected" %}
-                <span class="badge text-bg-success">{{ a.get_status_display }}</span>
-              {% else %}
-                <span class="badge text-bg-warning">{{ a.get_status_display }}</span>
-              {% endif %}
+            {% if support.status == "pending" %}
+              <span class="badge text-bg-secondary">Pending</span>
+            {% elif support.status == "in_progress" %}
+              <span class="badge text-bg-warning">In Progress</span>
+            {% elif support.status == "completed" %}
+              <span class="badge text-bg-success">Completed</span>
+            {% else %}
+              <span class="badge text-bg-light text-dark">{{ support.get_status_display|default:support.status|default:"—" }}</span>
             {% endif %}
-
-            <div class="small text-muted mt-1">
-              Allotted {{ a.date_allotted|date:"d M Y"|default:"—" }}
-              {% if a.date_connected %}
-                &middot; Connected {{ a.date_connected|date:"d M Y" }}
-              {% endif %}
-            </div>
-
-            {% if a.support_provided %}
-              <p class="small mt-2 mb-0">{{ a.support_provided }}</p>
-            {% endif %}
-
           </div>
-
-        {% endfor %}
+        </div>
       {% empty %}
-        <p class="text-muted mb-0">No knowledge partner assigned yet.</p>
+        <p class="text-muted small mb-0">No support requested.</p>
       {% endfor %}
     </div>
   </div>
 
-  <!-- ---------- Milestones (scrollable) ---------- -->
-  <div class="card mb-3">
-    <div class="card-header bg-white fw-semibold">Milestones</div>
+    <!-- ---------- Quantifiable Deliverables ---------- -->
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span>Quantifiable Deliverables</span>
+        <span class="badge text-bg-primary">{{ application.quantifiable_deliverables.all|length }}</span>
+      </div>
 
-    <ul class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
-      {% for stage in application.trl_stages.all %}
-        {% for a in stage.partner_assignments.all %}
-          {% for ms in a.milestones.all %}
+      <div class="card-body">
+        {% for item in application.quantifiable_deliverables.all %}
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+              <strong>{{ item.quantifiable_deliverable.deliverable|default:"—" }}</strong>
 
-            <li class="list-group-item">
-              <div>
-                <strong>
-                  {% if ms.template %}
-                    {{ ms.template.description }}
-                  {% else %}
-                    {{ ms.label }}
-                  {% endif %}
-                </strong>
-                <span class="small text-muted">({{ a.partner.short_code }} &middot; {{ stage.trl.name }})</span>
+              {% if item.status == "pending" %}
+                <span class="badge text-bg-secondary">Pending</span>
+              {% elif item.status == "in_progress" %}
+                <span class="badge text-bg-warning">In Progress</span>
+              {% elif item.status == "completed" %}
+                <span class="badge text-bg-success">Completed</span>
+              {% else %}
+                <span class="badge text-bg-light text-dark">{{ item.get_status_display|default:item.status|default:"—" }}</span>
+              {% endif %}
+            </div>
 
-                {% if ms.status == "closed" %}
-                  <span class="badge text-bg-success">Completed</span>
-                {% else %}
-                  <span class="badge text-bg-warning">{{ ms.get_status_display }}</span>
-                {% endif %}
+            <div class="small mb-2">
+              <strong class="text-muted">TRL Stage:</strong>
+              {{ item.trl_stage.trl.name|default:"—" }}
+            </div>
+
+            <div class="small mb-2">
+              <strong class="text-muted">Knowledge Partner:</strong>
+              {% if item.knowledge_partner %}
+                {{ item.knowledge_partner.short_code|default:item.knowledge_partner.name }}
+              {% else %}
+                Not assigned
+              {% endif %}
+            </div>
+
+            {% if item.remarks %}
+              <div class="small mb-2">
+                <strong class="text-muted">Remarks:</strong>
+                <div>{{ item.remarks|linebreaksbr }}</div>
               </div>
+            {% endif %}
 
-              <div class="small mt-1">{{ ms.description }}</div>
-
-              {% if ms.action_taken %}
-                <div class="small mt-1">
-                  <strong>Action Taken:</strong> {{ ms.action_taken }}
+            {% with attachments=item.attachments.all %}
+              {% if attachments %}
+                <div class="mt-3">
+                  <div class="small fw-semibold text-muted mb-2">Attachments</div>
+                  {% for attachment in attachments %}
+                    {% if attachment.file %}
+                      <div class="small mb-1">
+                        <a href="{{ attachment.file.url }}"
+                           download="{{ attachment.original_name|default:attachment.file.name }}"
+                           class="text-decoration-none"
+                           onclick="event.stopPropagation()">
+                          <i class="bi bi-download me-1"></i>
+                          {{ attachment.original_name|default:attachment.file.name }}
+                        </a>
+                      </div>
+                    {% endif %}
+                  {% endfor %}
                 </div>
               {% endif %}
-
-              {% if ms.date_achieved %}
-                <div class="small mt-1">
-                  <strong>Date:</strong> {{ ms.date_achieved|date:"d M Y" }}
-                </div>
-              {% endif %}
-            </li>
-
-          {% endfor %}
+            {% endwith %}
+          </div>
+        {% empty %}
+          <p class="text-muted mb-0">No quantifiable deliverables assigned.</p>
         {% endfor %}
-      {% empty %}
-        <li class="list-group-item text-muted">No milestones recorded.</li>
-      {% endfor %}
-    </ul>
-  </div>
+      </div>
+    </div>
 
 </div>
 </div>

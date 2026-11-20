@@ -1,42 +1,49 @@
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_GET, require_POST
-from django.http import JsonResponse,FileResponse,Http404,HttpResponse
+import csv
 import json
-from django.core.serializers.json import DjangoJSONEncoder
-from django.shortcuts import render, get_object_or_404,redirect
-from django.utils import timezone
-from django.core.paginator import Paginator
+import logging
 
-from core.models import Application, KnowledgePartner,KnowledgePartnerAssignment,Milestone,TRLDefinition,ApplicationTRLStage,AssignmentChangeLog,TRLStageAttachment
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import Count, F, Prefetch, Q
+from django.http import (FileResponse,Http404,HttpResponse,JsonResponse,)
+from django.shortcuts import (get_object_or_404,redirect,render,)
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+
+from core.models import (
+    Application,
+    ApplicationQuantifiableDeliverable,
+    ApplicationSupport,
+    ApplicationTRLStage,
+    KnowledgePartner,
+    KnowledgePartnerAssignment,
+    PartnerMilestoneTemplate,
+    QuantifiableDeliverable,
+    QuantifiableDeliverableAttachment,
+    SupportOption,
+    TACMeeting,
+    TRLDefinition,
+)
+
 from . import services
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
-from django.db.models import Count,F,Prefetch
-from core.models import TACMeeting,PartnerMilestoneTemplate,TRLProgressLog,ApplicationSupport, ApplicationQuantifiableDeliverable,QuantifiableDeliverableAttachment
-from django.core.exceptions import ValidationError
-import csv
-import logging
-from django.contrib import messages
-from django.urls import reverse
 logger = logging.getLogger(__name__)
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024   # 10 MB
-
-
-
-from django.db.models import Q, F, Prefetch
-from django.core.paginator import Paginator
 
 @login_required
 def applications(request):
 
-    # Base queryset: apply all filters except MedTech Type
+    # 1. Base queryset (role-based access)
     base_qs = services.apply_dashboard_filters(
         request,
         include_medtech_type=False
     )
 
-    # Selected MedTech category (default: first category)
+    # 2. MedTech category selection
     valid_types = [
         value for value, label in Application.MedTechType.choices
     ]
@@ -46,26 +53,23 @@ def applications(request):
     if selected_medtech_type not in valid_types:
         selected_medtech_type = valid_types[0] if valid_types else ""
 
-    # Count applications for each MedTech category
+    # 3. MedTech category tabs with counts
     medtech_tabs = []
 
     for value, label in Application.MedTechType.choices:
         medtech_tabs.append({
             "value": value,
             "label": label,
-            "count": base_qs.filter(
-                medtech_type=value
-            ).count(),
+            "count": base_qs.filter(medtech_type=value).count(),
         })
 
-    # Apply selected MedTech category
-    qs = base_qs.filter(
-        medtech_type=selected_medtech_type
-    ) if selected_medtech_type else base_qs
+    # 4. Apply MedTech category filter
+    qs = base_qs
 
-    # ---------------------------------
-    # Search: Reference, Technology, Applicant Name
-    # ---------------------------------
+    if selected_medtech_type:
+        qs = qs.filter(medtech_type=selected_medtech_type)
+
+    # 5. Search filter
     search_query = request.GET.get("q", "").strip()
 
     if search_query:
@@ -74,20 +78,73 @@ def applications(request):
             Q(technology_name__icontains=search_query) |
             Q(applicant__name__icontains=search_query)
         )
-    # MedTech Sub Category dropdown filter
-    selected_subtype = request.GET.get("subtype", "")    
+
+    # 6. Subcategory filter
     valid_subtypes = [
-    value for value, label
-    in Application.MedTechSubCategoryType.choices
+        value for value, label
+        in Application.MedTechSubCategoryType.choices
     ]
+
+    selected_subtype = request.GET.get("subtype", "")
 
     if selected_subtype not in valid_subtypes:
         selected_subtype = ""
 
     if selected_subtype:
-         qs = qs.filter(medtech_subtype=selected_subtype)
+        qs = qs.filter(medtech_subtype=selected_subtype)
 
-    # Generate tab URLs and preserve other filters
+    # 7. Support options filter
+    support_options = SupportOption.objects.filter(
+        is_active=True
+    ).order_by("name")
+
+    valid_support_ids = {
+        str(option.id) for option in support_options
+    }
+
+    selected_support_option = request.GET.get("support_option", "")
+
+    if selected_support_option not in valid_support_ids:
+        selected_support_option = ""
+
+    if selected_support_option:
+        qs = qs.filter(
+            application_supports__support_option_id=selected_support_option
+        ).distinct()
+
+    # 8. Quantifiable deliverables filter
+    quantifiable_deliverables = QuantifiableDeliverable.objects.filter(
+        is_active=True
+    ).order_by("deliverable")
+
+    valid_deliverable_ids = {
+        str(item.id) for item in quantifiable_deliverables
+    }
+
+    selected_deliverable = request.GET.get("deliverable", "")
+
+    if selected_deliverable not in valid_deliverable_ids:
+        selected_deliverable = ""
+
+    if selected_deliverable:
+        qs = qs.filter(
+            quantifiable_deliverables__quantifiable_deliverable_id=
+            selected_deliverable
+        ).distinct()
+
+    # 9. Risk classification filter
+    risk_classification_choices = Application.RiskClass.choices
+
+    selected_risk_classification = request.GET.get(
+        "risk_classification", ""
+    )
+
+    if selected_risk_classification:
+        qs = qs.filter(
+            risk_classification=selected_risk_classification
+        )
+
+    # 10. Generate MedTech tab URLs
     tab_params = request.GET.copy()
     tab_params.pop("medtech_type", None)
     tab_params.pop("page", None)
@@ -97,7 +154,38 @@ def applications(request):
         params["medtech_type"] = tab["value"]
         tab["url"] = f"?{params.urlencode()}"
 
-    # Applications queryset
+    # --------------------------------------------------
+    # 11. Quantifiable deliverables queryset
+    # --------------------------------------------------
+
+    deliverable_qs = (
+        ApplicationQuantifiableDeliverable.objects
+        .select_related(
+            "quantifiable_deliverable",
+            "trl_stage__trl",
+            "knowledge_partner",
+        )
+        .prefetch_related("attachments")
+        .order_by(
+            "trl_stage__trl__level",
+            "id",
+        )
+    )
+
+    # Only Knowledge Partner users see their own assignments
+    if request.user.is_support_partner:
+
+        if request.user.knowledge_partner_id:
+            deliverable_qs = deliverable_qs.filter(
+                knowledge_partner_id=request.user.knowledge_partner_id
+            )
+        else:
+            deliverable_qs = deliverable_qs.none()
+
+    # --------------------------------------------------
+    # 12. Optimize application queries
+    # --------------------------------------------------
+
     applications_qs = (
         qs.select_related(
             "applicant",
@@ -108,10 +196,179 @@ def applications(request):
             Prefetch(
                 "tac_meetings",
                 queryset=TACMeeting.objects.order_by(
-                    "-meeting_date", "-id"
+                    "-meeting_date",
+                    "-id",
                 ),
             ),
+            Prefetch(
+                "application_supports",
+                queryset=ApplicationSupport.objects.select_related(
+                    "support_option"
+                ).order_by("id"),
+            ),
+            Prefetch(
+                "trl_stages",
+                queryset=ApplicationTRLStage.objects.select_related(
+                    "trl"
+                ).order_by("-trl__level", "-id"),
+            ),
+            Prefetch(
+                "quantifiable_deliverables",
+                queryset=deliverable_qs,
+            ),
+        )
+        .order_by(
+            F("date_received").desc(nulls_last=True),
+            "-id",
+        )
+    )
 
+    # 13. Pagination
+    paginator = Paginator(applications_qs, 20)
+
+    applications_page = paginator.get_page(
+        request.GET.get("page", 1)
+    )
+
+    # 14. Admin check
+    is_admin = (
+        request.user.is_superuser
+        or request.user.is_admin_role
+    )
+
+    # 15. Context
+    context = {
+        "kpis": services.kpi_summary(base_qs),
+        "medtech_type_data": services.applications_by_medtech_type(qs),
+        "risk_data": services.applications_by_risk_class(qs),
+        "status_choices": Application.ApplicationStatus.choices,
+        "medtech_type_choices": Application.MedTechType.choices,
+        "subtype_choices": Application.MedTechSubCategoryType.choices,
+        "medtech_tabs": medtech_tabs,
+        "selected_medtech_type": selected_medtech_type,
+        "selected_subtype": selected_subtype,
+        "search_query": search_query,
+        "support_options": support_options,
+        "selected_support_option": selected_support_option,
+        "quantifiable_deliverables": quantifiable_deliverables,
+        "selected_deliverable": selected_deliverable,
+        "partners": KnowledgePartner.objects.filter(is_active=True),
+        "active_filters": request.GET,
+        "applications": applications_page,
+        "is_admin": is_admin,
+        "risk_classification_choices": risk_classification_choices,
+        "selected_risk_classification": selected_risk_classification,
+    }
+
+    return render(
+        request,
+        "dashboard/applications.html",
+        context,
+    )
+
+
+@login_required
+def overview(request):
+
+    if request.user.is_support_partner:
+        return redirect("dashboard:applications")
+    qs = services.apply_dashboard_filters(
+        request,
+        include_trl=True,
+        include_medtech_type=True,
+        include_subtype=True,
+        include_support=True,
+        include_deliverable=True,
+    )
+
+    # KPI totals.
+    total_applications = qs.count()
+    total_in_progress = qs.filter(status=Application.ApplicationStatus.IN_PROGRESS).count()
+    total_closed = qs.filter(status=Application.ApplicationStatus.CLOSED).count()
+    total_completed = qs.filter(status=Application.ApplicationStatus.COMPLTED).count()
+    category_portfolio = services.category_wise_portfolio(qs)
+    support_rows = (
+        ApplicationSupport.objects
+        .filter(application__in=qs)
+        .values("support_option__name")
+        .annotate(total=Count("application_id", distinct=True))
+        .order_by("-total")
+    )
+
+    support_chart = {
+        "labels": [row["support_option__name"] for row in support_rows],
+        "values": [row["total"] for row in support_rows],
+    }
+
+    # Deliverable-wise status progress.
+    deliverable_rows = (
+        ApplicationQuantifiableDeliverable.objects
+        .filter(application__in=qs)
+        .values("quantifiable_deliverable__deliverable")
+        .annotate(
+            total=Count("id"),
+            completed=Count("id", filter=Q(status="completed")),
+            in_progress=Count("id", filter=Q(status="in_progress")),
+            pending=Count("id", filter=Q(status="pending")),
+        )
+        .order_by("quantifiable_deliverable__deliverable")
+    )
+
+    deliverable_progress = []
+    for row in deliverable_rows:
+        total = row["total"]
+        deliverable_progress.append({
+            "name": row["quantifiable_deliverable__deliverable"],
+            "total": total,
+            "completed": row["completed"],
+            "in_progress": row["in_progress"],
+            "pending": row["pending"],
+            "completed_percent": round(row["completed"] * 100 / total, 1),
+            "in_progress_percent": round(row["in_progress"] * 100 / total, 1),
+            "pending_percent": round(row["pending"] * 100 / total, 1),
+        })
+
+    # Filter dropdown data.
+    support_options = SupportOption.objects.filter(is_active=True).order_by("name")
+    quantifiable_deliverables = QuantifiableDeliverable.objects.filter(is_active=True).order_by("deliverable")
+    partners = KnowledgePartner.objects.filter(is_active=True).order_by("name")
+
+    context = {
+        "total_applications": total_applications,
+        "total_in_progress": total_in_progress,
+        "total_closed": total_closed,
+        "total_completed": total_completed,
+        "category_portfolio": category_portfolio,
+        "support_chart": support_chart,
+        "deliverable_progress": deliverable_progress,
+        "status_choices": Application.ApplicationStatus.choices,
+        "medtech_type_choices": Application.MedTechType.choices,
+        "subtype_choices": Application.MedTechSubCategoryType.choices,
+        "risk_choices": Application.RiskClass.choices,
+        "trl_level_choices": range(1, 10),
+        "support_options": support_options,
+        "quantifiable_deliverables": quantifiable_deliverables,
+        "partners": partners,
+    }
+
+    return render(request, "dashboard/dashboard.html", context)
+
+
+@login_required
+def application_detail(request, pk):
+    application = get_object_or_404(
+        Application.objects
+        .select_related(
+            "applicant",
+            "current_trl",
+            "initial_trl",
+        )
+        .prefetch_related(
+            "tac_meetings",
+            "trl_stages__partner_assignments__partner",
+            "trl_stages__partner_assignments__milestones",
+
+            # Support Requested
             Prefetch(
                 "application_supports",
                 queryset=ApplicationSupport.objects
@@ -119,13 +376,7 @@ def applications(request):
                 .order_by("id"),
             ),
 
-            Prefetch(
-                "trl_stages",
-                queryset=ApplicationTRLStage.objects.select_related(
-                    "trl"
-                ).order_by("trl__level"),
-            ),
-
+            # Quantifiable Deliverables
             Prefetch(
                 "quantifiable_deliverables",
                 queryset=ApplicationQuantifiableDeliverable.objects
@@ -137,869 +388,19 @@ def applications(request):
                 .prefetch_related("attachments")
                 .order_by("trl_stage__trl__level", "id"),
             ),
-        )
-        .order_by(
-            F("date_received").desc(nulls_last=True),
-            "-id",
-        )
-    )
-
-    # Pagination
-    paginator = Paginator(applications_qs, 20)
-    page_number = request.GET.get("page", 1)
-    applications_page = paginator.get_page(page_number)
-
-    # Admin
-    is_admin = (
-        request.user.is_superuser
-        or request.user.is_admin_role
-    )
-
-    # Context
-    context = {
-        "kpis": services.kpi_summary(base_qs),
-        "medtech_type_data": services.applications_by_medtech_type(qs),
-        "risk_data": services.applications_by_risk_class(qs),
-        "status_choices": Application.ApplicationStatus.choices,
-        "medtech_type_choices": Application.MedTechType.choices,
-        "medtech_tabs": medtech_tabs,
-        "selected_subtype": selected_subtype,
-        "subtype_choices": Application.MedTechSubCategoryType.choices,
-        "selected_medtech_type": selected_medtech_type,
-        "partners": KnowledgePartner.objects.filter(is_active=True),
-        "active_filters": request.GET,
-        "applications": applications_page,
-        "is_admin": is_admin,
-        "search_query": search_query,
-    }
-
-    return render(request, "dashboard/applications.html", context)
-
-
-@login_required
-def overview(request):
-    qs = services.apply_dashboard_filters(request)
-
-    applications_qs = (
-    qs.select_related(
-        "applicant",
-        "initial_trl",
-        "current_trl"
-    )
-    .prefetch_related(
-        "tac_meetings",
-
-        Prefetch(
-            "trl_stages",
-            queryset=ApplicationTRLStage.objects.prefetch_related(
-                Prefetch(
-                    "partner_assignments",
-                    queryset=KnowledgePartnerAssignment.objects
-                    .select_related("partner")
-                    .order_by("-date_allotted", "-id")
-                )
-            )
         ),
-
-        # Support, individual status and individual attachments
-        Prefetch(
-            "application_supports",
-            queryset=ApplicationSupport.objects
-            .select_related("support_option")
-            .order_by("id")
-        ),
-        Prefetch(
-            "quantifiable_deliverables",
-            queryset=ApplicationQuantifiableDeliverable.objects
-            .select_related("quantifiable_deliverable")
-            .prefetch_related("attachments")
-            .order_by("id")
-        ),
-    )
-    .order_by(
-        F("date_received").desc(nulls_last=True),
-        "-id"
-    )
-)
-
-    paginator = Paginator(applications_qs, 5)
-    page_number = request.GET.get("page", 1)
-    applications_page = paginator.get_page(page_number)
-
-    # Prepare TAC support names and latest Knowledge Partner for each application.
-    for app in applications_page:
-
-        # -----------------------------------
-        # 1. TAC support names
-        # -----------------------------------
-        support_names = []
-        # -----------------------------------
-        # 2. Latest Knowledge Partner
-        # -----------------------------------
-        latest_assignment = None
-
-        for stage in app.trl_stages.all():
-            assignments = list(stage.partner_assignments.all())
-
-            if assignments:
-                candidate = assignments[0]
-
-                if latest_assignment is None:
-                    latest_assignment = candidate
-
-                elif (
-                    candidate.date_allotted or candidate.created_at
-                ) > (
-                    latest_assignment.date_allotted
-                    or latest_assignment.created_at
-                ):
-                    latest_assignment = candidate
-
-        if latest_assignment:
-            app.latest_partner_name = latest_assignment.partner.short_code
-            app.latest_partner_date = latest_assignment.date_allotted
-        else:
-            app.latest_partner_name = "—"
-            app.latest_partner_date = None
-
-    # -----------------------------------
-    # 3. TRL chart data
-    # -----------------------------------
-    trl_qs = (
-        ApplicationTRLStage.objects
-        .values("trl__level", "trl__name")
-        .annotate(value=Count("application", distinct=True))
-        .order_by("trl__level")
-    )
-
-    trl_data = [
-        {
-            "level": row["trl__level"],
-            "label": row["trl__name"],
-            "value": row["value"],
-        }
-        for row in trl_qs
-    ]
-
-    # -----------------------------------
-    # 4. TRL definitions
-    # -----------------------------------
-    all_trls_qs = (
-        TRLDefinition.objects
-        .filter(level__gt=0)
-        .order_by("level")
-    )
-
-    trl_definitions = list(
-        all_trls_qs.values("id", "name", "medtech_type")
-    )
-
-    # -----------------------------------
-    # 5. Admin and TRL movement
-    # -----------------------------------
-    is_admin = (
-        request.user.is_superuser
-        or request.user.is_admin_role
-    )
-
-    trl_movement = (
-        services.get_trl_movement(request)
-        if is_admin else []
-    )
-
-    movement_summary = {
-        "total": sum(r["total"] for r in trl_movement),
-        "moved": sum(
-            r["total"] for r in trl_movement
-            if r["steps"] > 0
-        ),
-        "not_moved": sum(
-            r["total"] for r in trl_movement
-            if r["steps"] == 0
-        ),
-    }
-
-    # -----------------------------------
-    # 6. Clear TRL filter URL
-    # -----------------------------------
-    params = request.GET.copy()
-
-    for key in ("trl_from", "trl_to", "page"):
-        params.pop(key, None)
-
-    clear_trl_url = "?" + params.urlencode()
-
-    # -----------------------------------
-    # 7. Context
-    # -----------------------------------
-    context = {
-        "kpis": services.kpi_summary(qs),
-        "medtech_type_data": services.applications_by_medtech_type(qs),
-        "risk_data": services.applications_by_risk_class(qs),
-        "partner_data": services.applications_by_knowledge_partner(),
-        "trl_data": trl_data,
-        "trl_levels": [row["level"] for row in trl_data],
-        "trl_level_choices": range(1, 10),
-        "status_choices": Application.ApplicationStatus.choices,
-        "medtech_type_choices": Application.MedTechType.choices,
-        "risk_choices": Application.RiskClass.choices,
-        "partners": KnowledgePartner.objects.filter(is_active=True),
-        "active_filters": request.GET,
-        "applications": applications_page,
-        "all_trls": all_trls_qs,
-        "trl_definitions_json": trl_definitions,
-        "is_admin": is_admin,
-        "trl_movement": trl_movement,
-        "movement_summary": movement_summary,
-        "clear_trl_url": clear_trl_url,
-    }
-
-    return render(request, "dashboard/dashboard.html", context)
-
-
-@login_required
-def application_detail(request, pk):
-    application = get_object_or_404(
-        Application.objects.select_related("applicant", "current_trl", "initial_trl")
-       .prefetch_related(
-    "tac_meetings",
-    "trl_stages__partner_assignments__partner",
-    "trl_stages__partner_assignments__milestones",
-    "trl_history__trl",
-),
         pk=pk,
     )
+
     context = {
         "application": application,
-        "trl_tracker": services.trlprogresstracker(application.reference_no),
-    }
-    return render(request, "dashboard/application_detail.html", context)
-
-@require_GET
-def trl_detail_ajax(request):
-    application_id = request.GET.get('application_id')
-    trl_id = request.GET.get('trl_id')
-
-    if not application_id or not trl_id:
-        return JsonResponse({"error": "application_id and trl_id are required"}, status=400)
-
-    application = Application.objects.filter(id=application_id).first()
-    trl = TRLDefinition.objects.filter(id=trl_id).first()
-
-    if not application or not trl:
-        return JsonResponse({"error": "Application or TRL not found"}, status=404)
-
-    trl_tag = f"TRL-{trl.level}"
-
-    # Find the TRL stage for this application + this TRL level
-    stage = ApplicationTRLStage.objects.filter(
-        application=application, trl=trl
-    ).first()
-
-    if not stage:
-        return JsonResponse({
-            "trl_level": trl.level,
-            "trl_name": trl.name,
-            "total_assigned_partners": 0,
-            "assigned_partners": [],
-            "partners": [],
-        })
-
-    # Get all partner assignments under this TRL stage
-    assignments = KnowledgePartnerAssignment.objects.filter(
-        trl_stage=stage
-    ).select_related('partner').order_by('-date_allotted')
-    all_assigned_partners = []
-    matched_partners = []
-
-    for assignment in assignments:
-        partner = assignment.partner
-        levels_list = [lvl.strip() for lvl in partner.applicable_trl_levels.split(",") if lvl.strip()]
-
-        milestones_data = []
-        milestones = Milestone.objects.filter(assignment=assignment).order_by('template__sequence')
-        for m in milestones:
-            milestones_data.append({
-                "label": m.label or (m.template.description if m.template else ""),
-                "template_name": m.template.description if m.template else "",
-                "status": m.get_status_display(),
-                "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else None,
-            })
-
-        partner_data = {
-            "partner_id": partner.id,
-            "partner_name": partner.name,
-            "short_code": partner.short_code,
-            "applicable_trl_levels": partner.applicable_trl_levels,
-            "assignment_status": assignment.get_status_display(),
-            "milestones": milestones_data,
-        }
-
-        all_assigned_partners.append(partner_data)
-
-        if trl_tag in levels_list:
-            matched_partners.append(partner_data)
-
-    return JsonResponse({
-        "trl_level": trl.level,
-        "trl_name": trl.name,
-        "total_assigned_partners": assignments.count(),
-        "assigned_partners": all_assigned_partners,
-        "partners": matched_partners,
-    })
-
-
-@require_GET
-def partners_for_trl_ajax(request):
-    """Returns knowledge partners applicable to a given TRL level, each with
-    their milestone template checklist, for the 'Assign Knowledge Partner' popup."""
-    trl_id = request.GET.get('trl_id')
-    trl = TRLDefinition.objects.filter(id=trl_id).first()
-    if not trl:
-        return JsonResponse({"error": "TRL not found"}, status=404)
-
-    def normalize(s):
-        return s.strip().upper().replace(" ", "").replace("-", "")
-
-    target = normalize(f"TRL{trl.level}")
-
-    partners = KnowledgePartner.objects.filter(is_active=True)
-    matched = []
-    for p in partners:
-        levels = [normalize(lvl) for lvl in p.applicable_trl_levels.split(",") if lvl.strip()]
-        if target in levels:
-            templates = list(
-                p.milestone_templates.order_by("sequence").values("id", "sequence", "description")
-            )
-            matched.append({
-                "id": p.id,
-                "name": p.name,
-                "short_code": p.short_code,
-                "milestone_templates": templates,   # <-- new
-            })
-
-    return JsonResponse({"trl_id": trl.id, "trl_level": trl.level, "partners": matched})
-
-
-@require_POST
-def assign_trl_partner_ajax(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid data"}, status=400)
-
-    application_id = data.get("application_id")
-    trl_id = data.get("trl_id")                  # can be None now
-    partners_data = data.get("partners", [])
-    initial_trl_id = data.get("initial_trl_id")
-    current_trl_id = data.get("current_trl_id")
-
-    application = Application.objects.filter(id=application_id).first()
-    if not application:
-        return JsonResponse({"error": "Application not found"}, status=404)
-
-    trl = None
-    if trl_id:
-        trl = TRLDefinition.objects.filter(id=trl_id).first()
-        if not trl:
-            return JsonResponse({"error": "TRL not found"}, status=404)
-
-        # Partners are needed only when a TRL Level is chosen
-        if not partners_data:
-            return JsonResponse({"error": "Select at least one knowledge partner"}, status=400)
-
-    changed = False
-    today = timezone.now().date()
-    user = request.user if request.user.is_authenticated else None
-
-    # ---- Explicit Initial TRL / Current TRL from the popup dropdowns ----
-    if initial_trl_id:
-        initial_trl = TRLDefinition.objects.filter(id=initial_trl_id).first()
-        if initial_trl and application.initial_trl_id != initial_trl.id:
-            application.initial_trl = initial_trl
-            application.initial_trl_date = today
-            changed = True
-
-    if current_trl_id:
-        current_trl = TRLDefinition.objects.filter(id=current_trl_id).first()
-        if current_trl and application.current_trl_id != current_trl.id:
-            application.current_trl = current_trl
-            application.current_trl_date = today
-            changed = True
-            TRLProgressLog.objects.create(
-                application=application,
-                trl=current_trl,
-                changed_on=today,
-                remarks=f"Current TRL set to {current_trl.name} via Assign Knowledge Partner action.",
-                created_by=user,
-            )
-
-    # ---- Fallback: keep application in sync with the TRL being assigned ----
-    # CHANGED: runs only when a TRL Level was chosen
-    if trl:
-        if not application.initial_trl_id:
-            application.initial_trl = trl
-            application.initial_trl_date = today
-            changed = True
-
-        # CHANGED: don't overwrite a Current TRL the user picked in the dropdown
-        if not current_trl_id and (
-            not application.current_trl_id or trl.level > application.current_trl.level
-        ):
-            application.current_trl = trl
-            application.current_trl_date = today
-            changed = True
-            TRLProgressLog.objects.create(
-                application=application,
-                trl=trl,
-                changed_on=today,
-                remarks=f"Current TRL set to {trl.name} via Assign Knowledge Partner action.",
-                created_by=user,
-            )
-
-    if changed:
-        application.save()
-
-    # NEW: no TRL Level chosen -> only Initial/Current TRL were saved, stop here
-    if not trl:
-        return JsonResponse({
-            "success": True,
-            "assignments_created": 0,
-            "milestones_created": 0,
-            "stage_status": None,
-            "application_initial_trl": application.initial_trl.name if application.initial_trl else None,
-            "application_current_trl": application.current_trl.name if application.current_trl else None,
-        })
-
-    # ---- TRL stage + partner + milestone logic (unchanged) ----
-    stage, stage_created = ApplicationTRLStage.objects.get_or_create(
-        application=application,
-        trl=trl,
-        defaults={
-            "status": ApplicationTRLStage.StageStatus.IN_PROGRESS,
-            "start_date": today,
-        },
-    )
-
-    if stage_created:
-        TRLProgressLog.objects.create(
-            application=application,
-            trl=trl,
-            changed_on=today,
-            remarks=f"{trl.name} stage opened with knowledge partner assignment.",
-            created_by=user,
-        )
-
-    assignments_created = 0
-    milestones_created = 0
-
-    for p in partners_data:
-        partner = KnowledgePartner.objects.filter(id=p.get("partner_id")).first()
-        if not partner:
-            continue
-
-        assignment, was_created = KnowledgePartnerAssignment.objects.get_or_create(
-            trl_stage=stage,
-            partner=partner,
-            defaults={"date_allotted": today},
-        )
-        if was_created:
-            assignments_created += 1
-
-        for m in p.get("milestones", []):
-            template_id = m.get("template_id")
-            status = m.get("status") or "in_progress"
-
-            template = PartnerMilestoneTemplate.objects.filter(id=template_id).first()
-            if not template:
-                continue
-
-            if Milestone.objects.filter(assignment=assignment, template=template).exists():
-                continue
-
-            Milestone.objects.create(
-                assignment=assignment,
-                template=template,
-                label=f"M-{template.sequence}",
-                description=template.description,
-                status=status,
-                date_achieved=today if status == "closed" else None,
-            )
-            milestones_created += 1
-
-    # stage.check_and_advance()
-    # stage.refresh_from_db()
-
-    return JsonResponse({
-        "success": True,
-        "assignments_created": assignments_created,
-        "milestones_created": milestones_created,
-        "stage_status": stage.status,
-        "application_initial_trl": application.initial_trl.name if application.initial_trl else None,
-        "application_current_trl": application.current_trl.name if application.current_trl else None,
-    })
-
-
-@login_required
-@require_GET
-def application_milestones_ajax(request):
-    user = request.user
-
-    # ---- Step 1: Find the user's role ----
-    is_admin = user.is_superuser or user.is_admin_role
-    is_innovator = user.is_innovator and not is_admin
-    partner = getattr(user, "partner_profile", None) if user.is_support_partner else None
-
-    if not (is_admin or is_innovator or partner):
-        return JsonResponse({"error": "You do not have permission."}, status=403)
-
-    application = Application.objects.filter(id=request.GET.get("application_id")).first()
-    if not application:
-        return JsonResponse({"error": "Application not found."}, status=404)
-
-    # ---- Step 2: Innovator can see only their own application ----
-    # Change "applicant_id" if your link between user and application is different.
-    if is_innovator and application.applicant_id != user.applicant_id:
-        return JsonResponse({"error": "You do not have permission."}, status=403)
-
-    assignments = (
-        KnowledgePartnerAssignment.objects
-        .filter(trl_stage__application=application)
-        .select_related("partner", "trl_stage__trl")
-        .prefetch_related(
-            Prefetch(
-                "milestones",
-                queryset=Milestone.objects.select_related("template")
-                                          .order_by("template__sequence", "id"),
-            )
-        )
-        .order_by("trl_stage__trl__level", "partner__name")
-    )
-
-    # ---- Step 3: Support partner sees only their own assignments ----
-    if not is_admin and not is_innovator:
-        assignments = assignments.filter(partner=partner)
-
-    result = []
-    for a in assignments:
-        result.append({
-            "assignment_id": a.id,
-            "trl_name": a.trl_stage.trl.name,
-            "partner_name": a.partner.name,
-            "short_code": a.partner.short_code,
-            "assignment_status": a.get_status_display(),
-            "advisory_remarks": a.advisory_remarks,
-            "can_edit": can_edit_assignment(user, a),
-            "milestones": [
-                {
-                    "id": m.id,
-                    "label": m.label,
-                    "description": m.description or (m.template.description if m.template else ""),
-                    "status": m.status,
-                    "remarks": m.remarks,
-                    "status_display": m.get_status_display(),
-                    "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
-                }
-                for m in a.milestones.all()
-            ],
-        })
-
-    return JsonResponse({
-        "reference_no": application.reference_no,
-        "technology_name": application.technology_name,
-        "is_admin": is_admin,
-        "can_edit": is_admin or partner is not None,
-        "status_choices": [
-            {"value": v, "label": l} for v, l in Milestone.MilestoneStatus.choices
-        ],
-        "assignments": result,
-    })
-
-
-def can_edit_assignment(user, assignment):
-    if user.is_superuser or user.is_admin_role:
-        return True
-
-    if user.is_support_partner:
-        partner = getattr(user, "partner_profile", None)
-        return partner is not None and assignment.partner_id == partner.id
-
-    return False
-
-
-@login_required
-@require_POST
-def update_assignment_milestones(request):
-    try:
-        data = json.loads(request.body)
-    except ValueError:
-        return JsonResponse({"error": "Invalid data."}, status=400)
-
-    assignment = KnowledgePartnerAssignment.objects.select_related("trl_stage").filter(
-        id=data.get("assignment_id")
-    ).first()
-    if not assignment:
-        return JsonResponse({"error": "Assignment not found."}, status=404)
-
-    if not can_edit_assignment(request.user, assignment):
-        return JsonResponse({"error": "You do not have permission to change this assignment."}, status=403)
-
-    milestone_updates = data.get("milestones", [])
-    remarks = data.get("remarks", "")
-
-    valid_values = Milestone.MilestoneStatus.values
-    status_labels = dict(Milestone.MilestoneStatus.choices)
-    milestone_ids = [m.get("milestone_id") for m in milestone_updates]
-
-    milestones = {
-        str(m.id): m for m in Milestone.objects.filter(
-            id__in=milestone_ids, assignment=assignment
-        )
     }
 
-    logs_to_create = []
-    updated = []
-
-    for item in milestone_updates:
-        milestone = milestones.get(str(item.get("milestone_id")))
-        if not milestone:
-            continue
-
-        changed = False
-
-        # ---- 1. Status ----
-        new_status = item.get("status")
-        if new_status in valid_values and new_status != milestone.status:
-            logs_to_create.append(AssignmentChangeLog(
-                assignment=assignment,
-                milestone=milestone,
-                field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_STATUS,
-                old_value=milestone.get_status_display(),
-                new_value=status_labels.get(new_status, new_status),
-                created_by=request.user,
-            ))
-
-            milestone.status = new_status
-            if new_status == Milestone.MilestoneStatus.CLOSED:
-                milestone.date_achieved = milestone.date_achieved or timezone.localdate()
-            else:
-                milestone.date_achieved = None
-
-            changed = True
-
-        # ---- 2. Remarks (NEW) ----
-        # Only check if the page sent "remarks", so old pages can't wipe them
-        if "remarks" in item:
-            new_remarks = (item.get("remarks") or "").strip()
-            old_remarks = milestone.remarks or ""
-
-            if new_remarks != old_remarks:
-                logs_to_create.append(AssignmentChangeLog(
-                    assignment=assignment,
-                    milestone=milestone,
-                    field_changed=AssignmentChangeLog.FieldChanged.MILESTONE_REMARKS,
-                    old_value=old_remarks or "-",
-                    new_value=new_remarks or "-",
-                    created_by=request.user,
-                ))
-
-                milestone.remarks = new_remarks
-                changed = True
-
-        # ---- Save once if anything changed ----
-        if changed:
-            milestone.save()
-            updated.append(milestone)
-
-    # ---- Overall assignment remarks (unchanged) ----
-    old_remarks = assignment.advisory_remarks
-    if remarks != old_remarks:
-        logs_to_create.append(AssignmentChangeLog(
-            assignment=assignment,
-            field_changed=AssignmentChangeLog.FieldChanged.REMARKS,
-            old_value=old_remarks,
-            new_value=remarks,
-            created_by=request.user,
-        ))
-        assignment.advisory_remarks = remarks
-        assignment.save(update_fields=["advisory_remarks"])
-
-    if logs_to_create:
-        AssignmentChangeLog.objects.bulk_create(logs_to_create)
-
-    stage_completed = False
-    stage = assignment.trl_stage
-    if stage:
-        stage.check_and_advance()
-        stage.refresh_from_db()
-        stage_completed = stage.status == stage.StageStatus.COMPLETED
-
-    return JsonResponse({
-        "success": True,
-        "stage_completed": stage_completed,
-        "changed_count": len(logs_to_create),
-        "milestones": [
-            {
-                "id": m.id,
-                "status_display": m.get_status_display(),
-                "remarks": m.remarks,          # NEW
-                "date_achieved": m.date_achieved.strftime("%d %b %Y") if m.date_achieved else "-",
-            }
-            for m in updated
-        ],
-    })
-
-
-@login_required
-@require_GET
-def assignment_history_ajax(request):
-    assignment = KnowledgePartnerAssignment.objects.filter(
-        id=request.GET.get("assignment_id")
-    ).first()
-    if not assignment:
-        return JsonResponse({"error": "Assignment not found."}, status=404)
-
-    if not can_edit_assignment(request.user, assignment):
-        return JsonResponse({"error": "You do not have permission."}, status=403)
-
-    logs = assignment.change_logs.select_related("created_by", "milestone")[:50]
-
-    return JsonResponse({
-        "logs": [
-            {
-                "field_changed": log.get_field_changed_display(),
-                "milestone_label": log.milestone.label if log.milestone else "",
-                "old_value": log.old_value,
-                "new_value": log.new_value,
-                "changed_by": log.created_by.get_username() if log.created_by else "Unknown",
-                "changed_at": log.created_at.strftime("%d %b %Y, %I:%M %p"),
-            }
-            for log in logs
-        ]
-    })
-
-def get_attachment_role(user, application):
-    """Return 'admin', 'partner', 'innovator' or None (no access)."""
-    if user.is_superuser or getattr(user, "is_admin_role", False):
-        return "admin"
-
-    partner = getattr(user, "partner_profile", None)
-    if partner and KnowledgePartnerAssignment.objects.filter(
-        trl_stage__application=application, partner=partner
-    ).exists():
-        return "partner"
-
-    # CHANGED: use the existing User.applicant field
-    user_applicant_id = getattr(user, "applicant_id", None)
-    if user_applicant_id and user_applicant_id == application.applicant_id:
-        return "innovator"
-
-    return None
-
-
-def stages_for_user(user, application, role):
-    """TRL stages this user can see files for."""
-    stages = application.trl_stages.select_related("trl")
-    if role == "partner":
-        stages = stages.filter(partner_assignments__partner=user.partner_profile).distinct()
-    return stages
-
-
-def role_for_stage(user, stage):
-    """Role for one stage, or None if the user can't access it."""
-    role = get_attachment_role(user, stage.application)
-    if role == "partner" and not stage.partner_assignments.filter(
-        partner=user.partner_profile
-    ).exists():
-        return None
-    return role
-
-@login_required
-@require_GET
-def trl_attachments(request):
-    application = get_object_or_404(
-        Application.objects.select_related("applicant"),
-        pk=request.GET.get("application_id"),
+    return render(
+        request,
+        "dashboard/application_detail.html",
+        context,
     )
-    role = get_attachment_role(request.user, application)
-    if role is None:
-        return JsonResponse({"error": "You do not have access to this application."}, status=403)
-
-    stages = stages_for_user(request.user, application, role).prefetch_related(
-        "attachments__created_by"
-    )
-
-    stages_data = []
-    for stage in stages:
-        files = []
-        for att in stage.attachments.all():
-            uploader = att.created_by
-            files.append({
-                "id": att.id,
-                "name": att.original_name,
-                "note": att.note,
-                "uploaded_by": (uploader.get_full_name() or uploader.username) if uploader else "—",
-                "uploader_role": att.uploader_role,
-                "uploader_role_display": att.get_uploader_role_display(),
-                "uploaded_at": timezone.localtime(att.created_at).strftime("%d %b %Y, %H:%M"),
-                "download_url": f"/ajax/trl-attachments/download/{att.id}/",
-                "can_delete": role == "admin" or att.created_by_id == request.user.id,
-            })
-
-        stages_data.append({
-            "stage_id": stage.id,
-            "trl_name": stage.trl.name,
-            "files": files,
-        })
-
-    return JsonResponse({"role": role, "stages": stages_data})
-
-@login_required
-@require_POST
-def upload_trl_attachment(request):
-    stage = get_object_or_404(
-        ApplicationTRLStage.objects.select_related("application__applicant", "trl"),
-        pk=request.POST.get("trl_stage_id"),
-    )
-    role = role_for_stage(request.user, stage)
-    if role is None:
-        return JsonResponse({"error": "You cannot upload files to this TRL stage."}, status=403)
-
-    uploaded = request.FILES.get("file")
-    if not uploaded:
-        return JsonResponse({"error": "Please choose a file."}, status=400)
-    if uploaded.size > MAX_ATTACHMENT_SIZE:
-        return JsonResponse({"error": "File is too big. Maximum size is 10 MB."}, status=400)
-
-    note = request.POST.get('note', '').strip()
-    if not note:
-        return JsonResponse({'error': 'Description is required.'}, status=400)
-
-    attachment = TRLStageAttachment(
-        trl_stage=stage,
-        file=uploaded,
-        original_name=uploaded.name[:255],
-        note=request.POST.get("note", "")[:255],
-        uploader_role=role,
-        created_by=request.user,
-    )
-    try:
-        attachment.full_clean()   # checks the file type
-    except ValidationError as e:
-        return JsonResponse({"error": " ".join(e.messages)}, status=400)
-
-    attachment.save()
-    return JsonResponse({"ok": True})
-
-@login_required
-def download_trl_attachment(request, pk):
-    att = get_object_or_404(
-        TRLStageAttachment.objects.select_related("trl_stage__application__applicant"),
-        pk=pk,
-    )
-    if role_for_stage(request.user, att.trl_stage) is None:
-        raise Http404
-    return FileResponse(att.file.open("rb"), as_attachment=True, filename=att.original_name)
 
 
 @login_required

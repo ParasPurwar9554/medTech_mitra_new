@@ -1,8 +1,7 @@
 
 <div id="layoutSidenav_nav">
 
-    <nav class="sb-sidenav accordion sb-sidenav-dark"
-         id="sidenavAccordion">
+    <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
 
         <div class="sb-sidenav-menu">
 
@@ -14,30 +13,25 @@
                 </div>
 
                 <!-- Dashboard -->
-                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                 {% if not request.user.is_support_partner %}
+                <a class="nav-link {% if request.resolver_match.url_name == 'overview' %}active{% endif %}"
                    href="{% url 'dashboard:overview' %}">
 
                     <div class="sb-nav-link-icon">
                         <i class="fas fa-tachometer-alt"></i>
                     </div>
-
-                    Dashboard
-
+                    Dashboard & Analytics
                 </a>
-
-                <!-- Applications -->
+                {%  endif %}
                 <a class="nav-link {% if request.resolver_match.url_name == 'applications' %}active{% endif %}"
                    href="{% url 'dashboard:applications' %}">
 
                     <div class="sb-nav-link-icon">
                         <i class="fas fa-file-alt"></i>
                     </div>
-
                     Applications
-
                 </a>
             </div>
-
         </div>
 
         <!-- Sidebar Footer -->

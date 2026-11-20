@@ -1,255 +1,23 @@
-
 {% extends "base-dashboard.html" %}
 
 {% block title %}Applications | MedTech Mitra{% endblock %}
 
 {% block content %}
 
-<style>
-    /* Applications table */
-/* Applications Table - Improved Readability */
-.app-row td {
-    vertical-align: top;
-    padding: 16px 12px;
-    font-size: 15px;
-    line-height: 1.6;
-}
-
-/* Row Hover */
-.app-row:hover {
-    background-color: #f1f5f9;
-    transition: background-color 0.2s ease;
-}
-
-/* Inner Border / Cards */
-.app-row td .border {
-    border-color: #dbe2ea !important;
-    background: #ffffff;
-    border-radius: 8px;
-}
-
-/* Table Links */
-.app-row td a {
-    text-decoration: none;
-    color: #164b78;
-    overflow-wrap: anywhere;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.app-row td a:hover {
-    text-decoration: underline;
-    color: #0b3558;
-}
-
-/* Status Badges */
-.app-row .badge {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 6px 10px;
-    border-radius: 6px;
-}
-
-/* General Text */
-.app-row .small {
-    font-size: 14px !important;
-}
-
-/* Reference Number */
-.app-row .font-monospace {
-    font-size: 15px !important;
-    font-weight: 700;
-}
-
-/* Applicant and Technology */
-.app-row .fw-semibold {
-    font-weight: 600;
-}
-
-/* Better Text Wrapping */
-.app-row td {
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-}
-
-/* Support Option Colors */
-
-/* Common Support Option Design */
-.support-item {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.5;
-    padding: 4px 5px;
-    margin-bottom: 6px;
-    border-radius: 8px;
-    display: block;
-    border: 1px solid transparent;
-}
-
-/* Color 1 - Blue Grey */
-.support-color-1 {
-    color: #475569;
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
-}
-
-/* Color 2 - Amber */
-.support-color-2 {
-    color: #92400e;
-    background-color: #fffbeb;
-    border-color: #fde68a;
-}
-
-/* Color 3 - Violet */
-.support-color-3 {
-    color: #6d28d9;
-    background-color: #f5f3ff;
-    border-color: #ddd6fe;
-}
-
-/* Color 4 - Cyan */
-.support-color-4 {
-    color: #0e7490;
-    background-color: #ecfeff;
-    border-color: #a5f3fc;
-}
-
-/* Attachment link */
-.deliverable-link {
-    color: inherit;
-    text-decoration: none;
-}
-
-.deliverable-link:hover {
-    text-decoration: underline;
-}
-
-
-/* Common Deliverable and Partner Design */
-.deliverable-item {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.5;
-    padding: 4px 5px;
-    margin-bottom: 6px;
-    border-radius: 8px;
-    display: block;
-    border: 1px solid transparent;
-}
-
-/* Pending - Blue */
-.status-bg-pending {
-    color: #1d4ed8;
-    background-color: #eff6ff;
-    border-color: #bfdbfe;
-}
-
-/* In Progress - Yellow */
-.status-bg-in_progress {
-    color: #92400e;
-    background-color: #fef3c7;
-    border-color: #FFEA00;
-}
-
-/* Completed - Green */
-.status-bg-completed {
-    color: #166534;
-    background-color: #dcfce7;
-    border-color: #86efac;
-}
-
-/* Status Badges */
-.status-pending,
-.status-in-progress,
-.status-completed {
-    display: inline-block;
-    padding: 7px 12px;
-    border-radius: 7px;
-    font-size: 13px !important;
-    font-weight: 700;
-    border: 1px solid transparent;
-}
-
-.status-pending {
-    color: #1d4ed8;
-    background-color: #eff6ff;
-    border-color: #bfdbfe;
-}
-
-.status-in-progress {
-    color: #92400e;
-    background-color: #fef3c7;
-    border-color: #fcd34d;
-}
-
-.status-completed {
-    color: #166534;
-    background-color: #dcfce7;
-    border-color: #86efac;
-}
-
-/* Deliverable Download Link */
-.deliverable-link {
-    color: inherit !important;
-    text-decoration: none;
-}
-
-.deliverable-link:hover {
-    text-decoration: underline;
-}
-
-
-
-.nav-pills .nav-link {
-    color: #334155;
-    background-color: #f1f5f9;
-    border: 1px solid #dbe2ea;
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.nav-pills .nav-link:hover {
-    background-color: #e2e8f0;
-    color: #164b78;
-}
-
-.nav-pills .nav-link.active {
-    background-color: #164b78;
-    color: #ffffff;
-    border-color: #164b78;
-}
-
-</style>
-
 <div class="container-fluid px-4 py-3">
-
-    <!-- Page Heading -->
-    <div class="mb-4">
-        <!-- <h1 class="h3 fw-semibold mb-1">Applications</h1>
-        <p class="text-muted small mb-0">
-            Manage and track MedTech applications.
-        </p> -->
-    </div>
-
     <!-- Messages -->
-    <div id="messageArea"
-         class="position-fixed bottom-0 end-0 p-3"
-         style="z-index:1080; max-width:400px;">
+    <div id="messageArea" class="position-fixed bottom-0 end-0 p-3" style="z-index:1080; max-width:400px;">
 
         {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow mb-2"
-                 role="alert">
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow mb-2"
+            role="alert">
 
-                {{ message }}
+            {{ message }}
 
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="alert">
-                </button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">
+            </button>
 
-            </div>
+        </div>
         {% endfor %}
 
     </div>
@@ -323,26 +91,16 @@
 
     </div>
 
+    <!-- MedTech Category Tabs -->
     <div class="card shadow-sm mb-4">
+        <div class="card-body p-3">
 
-    </div>
+            <ul class="nav nav-pills nav-fill gap-2">
 
-
-    <!-- ================================= -->
-    <!-- 3. APPLICATIONS TABLE -->
-    <!-- ================================= -->
-
-  <!-- MedTech Category Tabs -->
-<div class="card shadow-sm mb-4">
-    <div class="card-body p-3">
-
-        <ul class="nav nav-pills nav-fill gap-2">
-
-            {% for tab in medtech_tabs %}
+                {% for tab in medtech_tabs %}
                 <li class="nav-item">
 
-                    <a href="{{ tab.url }}"
-                       class="nav-link d-flex justify-content-between align-items-center
+                    <a href="{{ tab.url }}" class="nav-link d-flex justify-content-between align-items-center
                        {% if selected_medtech_type == tab.value %}active{% endif %}">
 
                         <span>{{ tab.label }}</span>
@@ -359,137 +117,164 @@
                     </a>
 
                 </li>
-            {% endfor %}
+                {% endfor %}
 
-        </ul>
+            </ul>
 
+        </div>
     </div>
-</div>
 
-<!-- Applications List -->
-<div class="card shadow-sm mb-4">
+    <!-- Applications List -->
+    <div class="card shadow-sm mb-4">
 
-    <div class="card-header bg-light py-3">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card-header bg-light py-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-            <div class="fw-semibold">
-                <i class="fas fa-table me-2 text-primary"></i>
-                Applications List
+                <div class="fw-semibold">
+                    <i class="fas fa-table me-2 text-primary"></i>
+                    Applications List
+                </div>
+
+                <span class="badge text-bg-primary">
+                    {{ applications.paginator.count }} Applications
+                </span>
+
             </div>
-
-            <span class="badge text-bg-primary">
-                {{ applications.paginator.count }} Applications
-            </span>
-
-        </div>
-    </div>
-
-    <!-- Card Body -->
-    <div class="card-body p-0">
-
-        <div class="table-responsive">
-
-
-<form method="GET" class="mb-3">
-
-    <div class="row g-2">
-
-        <!-- Search Input -->
-        <div class="col-md-7">
-            <input
-                type="text"
-                name="q"
-                class="form-control"
-                placeholder="Search Reference, Technology or Applicant Name..."
-                value="{{ search_query }}"
-            >
         </div>
 
-        <!-- Sub Category Dropdown -->
-        <div class="col-md-3">
-           <select name="subtype" class="form-select">
+        <!-- Card Body -->
+        <div class="card-body p-0">
 
-    <option value=""
-        {% if not selected_subtype %}selected{% endif %}>
-        All Sub Categories
-    </option>
+            <form method="GET" class="card card-body m-3 p-3">
 
-    {% for value, label in subtype_choices %}
-        <option value="{{ value }}"
-            {% if selected_subtype == value %}selected{% endif %}>
-            {{ label }}
-        </option>
-    {% endfor %}
+                <input type="hidden" name="medtech_type" value="{{ selected_medtech_type }}">
 
-</select>
-        </div>
+                <div class="row g-2 align-items-center flex-nowrap">
 
-        <!-- Search Button -->
-        <div class="col-md-2 d-flex gap-2">
-            <button type="submit" class="btn btn-primary flex-grow-1">
-                <i class="fas fa-search"></i> Search
-            </button>
+                    <!-- Search -->
+                    <div class="col" style="min-width: 220px;">
+                        <input type="text" name="q" class="form-control"
+                            placeholder="Search Reference, Technology or Applicant..." value="{{ search_query }}">
+                    </div>
 
-            {% if search_query or selected_subtype %}
-                <a href="{% url 'dashboard:applications' %}"
-                   class="btn btn-outline-secondary">
-                    Reset
-                </a>
-            {% endif %}
-        </div>
+                    <!-- Sub Category -->
+                    <div class="col" style="min-width: 145px;">
+                        <select name="subtype" class="form-select">
+                            <option value="">Search By Sub Categories</option>
+                            {% for value, label in subtype_choices %}
+                            <option value="{{ value }}" {% if selected_subtype == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-    </div>
+                    <!-- Risk Classification -->
+                    <div class="col" style="min-width: 145px;">
+                        <select name="risk_classification" class="form-select">
+                            <option value="">Search By Class</option>
+                            {% for value, label in risk_classification_choices %}
+                            <option value="{{ value }}" {% if selected_risk_classification == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-</form>
+                    <!-- Support Requested -->
+                    <div class="col" style="min-width: 165px;">
+                        <select name="support_option" class="form-select">
+                            <option value="">Support Requested</option>
+                            {% for option in support_options %}
+                                <option value="{{ option.id }}"
+                                {% if selected_support_option == option.id|stringformat:"s" %}
+                                    selected
+                                {% endif %}>
+                                {{ option.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
+                    <!-- Deliverables -->
+                    <div class="col" style="min-width: 165px;">
+                        <select name="deliverable" class="form-select">
+                            <option value="">Deliverables</option>
+                            {% for item in quantifiable_deliverables %}
+                            <option value="{{ item.id }}" {% if selected_deliverable == item.id|stringformat:"s"%}
+                              selected
+                            {% endif %}>
+                                {{ item.deliverable }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-            <table class="table table-hover align-middle mb-0"
-                   style="table-layout:fixed; width:100%;">
+                    <!-- Buttons -->
+                    <div class="col-auto d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Search
+                        </button>
 
-                <!-- Column Widths -->
-                <colgroup>
-                    <col style="width:4%">
-                    <col style="width:12%">
-                    <col style="width:17%">
-                    <col style="width:9%">
-                    <col style="width:8%">
-                    <col style="width:16%">
-                    <col style="width:16%">
-                    <col style="width:9%">
-                    <col style="width:9%">
-                </colgroup>
+                        <a href="?medtech_type={{ selected_medtech_type }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </a>
+                    </div>
 
-                <!-- Table Header -->
-                <thead class="table-light">
-                    <tr class="small">
-                        <th>S.N.</th>
-                        <th>Reference / Received</th>
-                        <th>Technology / Applicant</th>
-                        <th>Category</th>
-                        <th>TAC</th>
-                        <th>Support Requested</th>
-                        <th>Quantifiable Deliverables</th>
-                        <th>Knowledge Partner</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+                </div>
+            </form>
 
-                <!-- Table Body -->
-                <tbody>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-top mb-0" style="table-layout:fixed; width:100%;">
 
-                    {% for app in applications %}
+                    <!-- Column Widths -->
+                    <colgroup>
+                        <col style="width:4%">
+                        <col style="width:11%">
+                        <col style="width:15%">
+                        <col style="width:8%">
+                        <col style="width:7%">
+                        <col style="width:9%">
+                        <!-- <col style="width:7%"> -->
+                        <col style="width:15%">
+                        <col style="width:15%">
+                        <col style="width:8%">
+                        <col style="width:8%">
+                    </colgroup>
 
-                        <tr class="app-row"
+                    <!-- Table Header -->
+                    <thead class="table-light">
+                        <tr class="small">
+                            <th>S.N.</th>
+                            <th>Reference / Received</th>
+                            <th>Technology / Applicant</th>
+                            <th>Category</th>
+                            <th>Class</th>
+                            <th>TAC</th>
+                            <!-- <th>Innovation Stage</th> -->
+                            <th>Support Requested</th>
+                            <th>Deliverables</th>
+                            <th>Knowledge Partner</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <!-- Table Body -->
+                    <tbody>
+
+                        {% for app in applications %}
+
+                        <tr class="align-top"
                             data-href="{% url 'dashboard:application_detail' app.pk %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
                             style="cursor:pointer;">
 
                             <!-- S.N. -->
-                            <td class="small">
+                            <td class="small align-top py-3">
                                 {{ applications.start_index|add:forloop.counter0 }}
                             </td>
 
                             <!-- Reference / Received -->
-                            <td class="text-break">
+                            <td class="text-break align-top py-3">
 
                                 <div class="fw-semibold font-monospace small">
                                     {{ app.reference_no }}
@@ -502,7 +287,7 @@
                             </td>
 
                             <!-- Technology / Applicant -->
-                            <td class="text-break">
+                            <td class="text-break align-top py-3">
 
                                 <div class="fw-semibold small">
                                     {{ app.technology_name }}
@@ -515,110 +300,152 @@
                             </td>
 
                             <!-- Category -->
-                            <td class="small">
+                            <td class="small align-top py-3">
                                 {{ app.get_medtech_type_display|default:"—" }}
                             </td>
+                            <td class="align-top py-3">
+                                {% if app.risk_classification == "A" %}
+                                <span class="badge bg-success">Class A</span>
+                                {% elif app.risk_classification == "B" %}
+                                <span class="badge bg-info text-dark">Class B</span>
+                                {% elif app.risk_classification == "C" %}
+                                <span class="badge bg-warning text-dark">Class C</span>
+                                {% elif app.risk_classification == "D" %}
+                                <span class="badge bg-danger">Class D</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Not Known</span>
+                                {% endif %}
+                            </td>
 
-                           <!-- TAC Reference Number -->
-<td>
-    {% for tac in app.tac_meetings.all %}
+                            <!-- TAC Reference Number -->
+                            <td class="align-top py-3">
+                                {% for tac in app.tac_meetings.all %}
 
-        <div class="small fw-semibold mb-2">
-            {{ tac.meeting_ref_no|default:"—" }}
-        </div>
+                                <div class="small fw-semibold mb-2">
+                                    {{ tac.meeting_ref_no|default:"—" }}
+                                </div>
 
-    {% empty %}
+                                {% empty %}
 
-        <span class="text-muted small">
-            No TAC meeting
-        </span>
+                                <span class="text-muted small">
+                                    No TAC meeting
+                                </span>
 
-    {% endfor %}
-</td>
+                                {% endfor %}
+                            </td>
 
-<!-- Support Options -->
-<td>
-    {% for support in app.application_supports.all %}
+                            <!-- Last TRL Stage -->
+                            <!-- <td class="align-top py-3">
+                                {% with last_stage=app.trl_stages.all|first %}
 
-        <div class="support-item support-color-{{ forloop.counter }}">
-            {{ support.support_option.name }}
-        </div>
+                                {% if last_stage %}
+                                <div class="small fw-semibold">
+                                    {{ last_stage.trl.name }}
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
 
-    {% empty %}
-        <span class="text-muted small">No support assigned</span>
-    {% endfor %}
-</td>
+                                {% endwith %}
+                            </td> -->
 
-                           <!-- Quantifiable Deliverables -->
+                            <!-- Support Options -->
+                            <td class="align-top py-3">
+                                {% for support in app.application_supports.all %}
 
-<td>
-    {% for item in app.quantifiable_deliverables.all %}
-        {% with attachment=item.attachments.first %}
-            <div class="deliverable-item status-bg-{{ item.status }}">
+                                <span class="badge d-block text-start text-wrap mb-2
+                                    {% if forloop.counter == 1 %}text-bg-primary
+                                    {% elif forloop.counter == 2 %}text-bg-warning
+                                    {% elif forloop.counter == 3 %}text-bg-info
+                                    {% else %}text-bg-secondary{% endif %}">
+                                    {{ support.support_option.name }}
+                                </span>
 
-                {% if attachment and attachment.file %}
-                    <a href="{{ attachment.file.url }}"
-                       download="{{ attachment.original_name|default:attachment.file.name }}"
-                       class="deliverable-link"
-                       onclick="event.stopPropagation()">
-                        {{ item.quantifiable_deliverable.deliverable }}
-                    </a>
-                {% else %}
-                    {{ item.quantifiable_deliverable.deliverable }}
-                {% endif %}
+                                {% empty %}
+                                <span class="text-muted small">No support assigned</span>
+                                {% endfor %}
+                            </td>
 
-            </div>
-        {% endwith %}
-    {% empty %}
-        <span class="text-muted small">—</span>
-    {% endfor %}
-</td>
+                            <!-- Quantifiable Deliverables -->
+
+                            <td class="align-top py-3">
+                                {% for item in app.quantifiable_deliverables.all %}
+                                {% with attachment=item.attachments.first %}
+                                <div class="mb-2">
+                                    <span class="badge d-block text-start text-wrap
+                                        {% if item.status == 'pending' %}text-bg-info
+                                        {% elif item.status == 'in_progress' %}text-bg-warning
+                                        {% elif item.status == 'completed' %}text-bg-success
+                                        {% else %}text-bg-secondary{% endif %}">
+
+                                        {% if attachment and attachment.file %}
+                                        <a href="{{ attachment.file.url }}"
+                                            download="{{ attachment.original_name|default:attachment.file.name }}"
+                                            class="link-primary text-decoration-none" onclick="event.stopPropagation()">
+                                            {{ item.quantifiable_deliverable.deliverable }}
+                                        </a>
+                                        {% else %}
+                                        {{ item.quantifiable_deliverable.deliverable }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endwith %}
+                                {% empty %}
+                                <span class="text-muted small">—</span>
+                                {% endfor %}
+                            </td>
 
                             <!-- Knowledge Partner -->
 
-<td>
-    {% for item in app.quantifiable_deliverables.all %}
+                            <td class="align-top py-3">
+                                {% for item in app.quantifiable_deliverables.all %}
 
-        <div class="deliverable-item status-bg-{{ item.status }}">
-            {% if item.knowledge_partner %}
-                {{ item.knowledge_partner.short_code }}
-            {% else %}
-                Not assigned
-            {% endif %}
-        </div>
+                                <div class="mb-2">
+                                    <span class="badge d-block text-start text-wrap
+                                        {% if item.status == 'pending' %}text-bg-info
+                                        {% elif item.status == 'in_progress' %}text-bg-warning
+                                        {% elif item.status == 'completed' %}text-bg-success
+                                        {% else %}text-bg-secondary{% endif %}">
+                                        {% if item.knowledge_partner %}
+                                        {{ item.knowledge_partner.short_code }}
+                                        {% else %}
+                                        Not assigned
+                                        {% endif %}
+                                    </span>
+                                </div>
 
-    {% empty %}
-        <span class="text-muted small">—</span>
-    {% endfor %}
-</td>
+                                {% empty %}
+                                <span class="text-muted small">—</span>
+                                {% endfor %}
+                            </td>
 
                             <!-- Deliverable Status -->
-<td>
-    {% for item in app.quantifiable_deliverables.all %}
+                            <td class="align-top py-3">
+                                {% for item in app.quantifiable_deliverables.all %}
 
-        <div class="mb-2">
-            {% if item.status == "pending" %}
-                <span class="badge status-pending">Pending</span>
+                                <div class="mb-2">
+                                    {% if item.status == "pending" %}
+                                    <span class="badge text-bg-info">Pending</span>
 
-            {% elif item.status == "in_progress" %}
-                <span class="badge status-in-progress">In Progress</span>
+                                    {% elif item.status == "in_progress" %}
+                                    <span class="badge text-bg-warning">In Progress</span>
 
-            {% elif item.status == "completed" %}
-                <span class="badge status-completed">Completed</span>
-            {% endif %}
-        </div>
+                                    {% elif item.status == "completed" %}
+                                    <span class="badge text-bg-success">Completed</span>
+                                    {% endif %}
+                                </div>
 
-    {% empty %}
-        <span class="text-muted small">—</span>
-    {% endfor %}
-</td>
+                                {% empty %}
+                                <span class="text-muted small">—</span>
+                                {% endfor %}
+                            </td>
 
                         </tr>
 
-                    {% empty %}
+                        {% empty %}
 
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-5">
+                            <td colspan="10" class="text-center text-muted py-5">
 
                                 <i class="fas fa-folder-open fa-2x mb-2 d-block"></i>
 
@@ -627,122 +454,122 @@
                             </td>
                         </tr>
 
-                    {% endfor %}
+                        {% endfor %}
 
-                </tbody>
+                    </tbody>
 
-            </table>
+                </table>
+
+            </div>
 
         </div>
 
-    </div>
+        <!-- Pagination -->
+        <div class="card-footer bg-white">
 
-    <!-- Pagination -->
-    <div class="card-footer bg-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <small class="text-muted">
 
-            <small class="text-muted">
-
-                {% if applications.paginator.count %}
+                    {% if applications.paginator.count %}
 
                     Showing {{ applications.start_index }} to
                     {{ applications.end_index }} of
                     {{ applications.paginator.count }} applications
 
-                {% else %}
+                    {% else %}
 
                     No applications found
 
+                    {% endif %}
+
+                </small>
+
+
+                {% if applications.paginator.num_pages > 1 %}
+
+                <nav aria-label="Applications pagination">
+
+                    <ul class="pagination pagination-sm mb-0">
+
+                        <!-- First and Previous -->
+                        {% if applications.has_previous %}
+
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page=1">
+                                First
+                            </a>
+                        </li>
+
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.previous_page_number }}">
+                                Previous
+                            </a>
+                        </li>
+
+                        {% else %}
+
+                        <li class="page-item disabled">
+                            <span class="page-link">First</span>
+                        </li>
+
+                        <li class="page-item disabled">
+                            <span class="page-link">Previous</span>
+                        </li>
+
+                        {% endif %}
+
+                        <!-- Current Page -->
+                        <li class="page-item active">
+                            <span class="page-link">
+                                {{ applications.number }} /
+                                {{ applications.paginator.num_pages }}
+                            </span>
+                        </li>
+
+                        <!-- Next and Last -->
+                        {% if applications.has_next %}
+
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.next_page_number }}">
+                                Next
+                            </a>
+                        </li>
+
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.paginator.num_pages }}">
+                                Last
+                            </a>
+                        </li>
+
+                        {% else %}
+
+                        <li class="page-item disabled">
+                            <span class="page-link">Next</span>
+                        </li>
+
+                        <li class="page-item disabled">
+                            <span class="page-link">Last</span>
+                        </li>
+
+                        {% endif %}
+
+                    </ul>
+
+                </nav>
+
                 {% endif %}
 
-            </small>
 
-            
-{% if applications.paginator.num_pages > 1 %}
-
-    <nav aria-label="Applications pagination">
-
-        <ul class="pagination pagination-sm mb-0">
-
-            <!-- First and Previous -->
-            {% if applications.has_previous %}
-
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page=1">
-                        First
-                    </a>
-                </li>
-
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.previous_page_number }}">
-                        Previous
-                    </a>
-                </li>
-
-            {% else %}
-
-                <li class="page-item disabled">
-                    <span class="page-link">First</span>
-                </li>
-
-                <li class="page-item disabled">
-                    <span class="page-link">Previous</span>
-                </li>
-
-            {% endif %}
-
-            <!-- Current Page -->
-            <li class="page-item active">
-                <span class="page-link">
-                    {{ applications.number }} /
-                    {{ applications.paginator.num_pages }}
-                </span>
-            </li>
-
-            <!-- Next and Last -->
-            {% if applications.has_next %}
-
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.next_page_number }}">
-                        Next
-                    </a>
-                </li>
-
-                <li class="page-item">
-                    <a class="page-link"
-                       href="?{% if active_filters %}{{ active_filters.urlencode }}&{% endif %}page={{ applications.paginator.num_pages }}">
-                        Last
-                    </a>
-                </li>
-
-            {% else %}
-
-                <li class="page-item disabled">
-                    <span class="page-link">Next</span>
-                </li>
-
-                <li class="page-item disabled">
-                    <span class="page-link">Last</span>
-                </li>
-
-            {% endif %}
-
-        </ul>
-
-    </nav>
-
-{% endif %}
-
+            </div>
 
         </div>
 
     </div>
-
-</div>
 
 
 
@@ -760,13 +587,9 @@
     });
 
     // Click anywhere on the row to open application details
-    document.querySelectorAll('.app-row').forEach(function (row) {
+    document.querySelectorAll('tr[data-href]').forEach(function (row) {
 
         row.addEventListener('click', function (event) {
-
-            if (event.target.closest('.action-cell')) {
-                return;
-            }
 
             window.location.href = this.dataset.href;
 
